@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "aggrec"
+version = "0.1.0"
+description = "DNS TAPIR Aggregate Receiver"
+authors = ["Jakob Schlyter <jakob@kirei.se>"]
+readme = "README.md"
+
+[tool.poetry.scripts]
+aggrec_server = "aggrec.server:main"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+boto3 = "^1.26.133"
+mongoengine = "^0.27.0"
+waitress = "^2.1.2"
+http-message-signatures = "^0.4.4"
+paho-mqtt = "^1.6.1"
+flask = "^2.3.2"
+
+[tool.poetry.group.dev.dependencies]
+isort = "^5.12.0"
+black = "^23.3.0"
+pylama = "^8.4.1"
+pytest = "^7.3.1"
+pytest-isort = "^3.1.0"
+pytest-black = "^0.3.12"
+cryptography = "^40.0.2"
+requests = "^2.30.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+[tool.isort]
+profile = "black"
+
+[tool.pylama.linter.pycodestyle]
+max_line_length = 120
+
+[tool.pylama.linter.mccabe]
+complexity = 40

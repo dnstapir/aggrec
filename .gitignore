@@ -1,0 +1,10 @@
+.DS_Store 
+.idea
+.mypy_cache
+.coverage
+__pycache__
+*~
+\#*\#
+.\#*
+build
+dist

@@ -1,0 +1,11 @@
+METADATA_BASE_URL = "http://127.0.0.1:5000"
+
+S3_ENDPOINT_URL = "http://localhost:9000"
+S3_BUCKET = "aggregates"
+S3_ACCESS_KEY_ID = "2wWjdDJrwUy8hIhz"
+S3_SECRET_ACCESS_KEY = "DYBXAFYGvpmrT3wiOsVw7yGy90wB0Art"
+
+MONGODB_HOST = "mongodb://localhost/aggregates"
+
+MQTT_BROKER = "localhost"
+MQTT_TOPIC = "aggregates"
