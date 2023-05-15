@@ -146,7 +146,7 @@ def get_aggregate_metadata(aggregate_id: str):
             "headers": metadata.http_headers,
             "content_type": metadata.content_type,
             "content_length": metadata.content_length,
-            "payload": urljoin(
+            "payload_location": urljoin(
                 current_app.config["METADATA_BASE_URL"],
                 f"/aggregates/{aggregate_id}/payload",
             ),
@@ -162,6 +162,11 @@ def get_aggregate_payload(aggregate_id: str):
         s3_obj = s3.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
         metadata_location = f"/aggregates/{aggregate_id}"
         response = send_file(s3_obj["Body"], mimetype=metadata.content_type)
-        response.headers.update({"Link": f'{metadata_location}; rel="about"'})
+        response.headers.update(
+            {
+                "Link": f'{metadata_location}; rel="about"',
+                "Content-Length": metadata.content_length,
+            }
+        )
         return response
     raise NotFound
