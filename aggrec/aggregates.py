@@ -108,6 +108,11 @@ def create_aggregate(aggregate_type: str):
     s3_object_key = f"type={aggregate_type}/creator={creator}/{aggregate_id}"
 
     s3 = get_s3_client()
+    if current_app.config.get("S3_BUCKET_CREATE", False):
+        try:
+            s3.create_bucket(Bucket=s3_bucket)
+        except Exception:
+            pass
     s3.put_object(Bucket=s3_bucket, Key=s3_object_key, Body=request.data)
 
     metadata = AggregateMetadata(
