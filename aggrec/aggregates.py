@@ -33,7 +33,7 @@ ALLOWED_CONTENT_TYPES = ["application/vnd.apache.parquet", "application/binary"]
 def get_http_request_verifier() -> RequestVerifier:
     if "http_request_verifier" not in g:
         g.http_request_verifier = RequestVerifier()
-        logging.warning("HTTP request verifier created")
+        logging.info("HTTP request verifier created")
     return g.http_request_verifier
 
 
@@ -47,7 +47,7 @@ def get_s3_client():
             aws_session_token=None,
             config=boto3.session.Config(signature_version="s3v4"),
         )
-        logging.warning("S3 client created")
+        logging.info("S3 client created")
     return g.s3_client
 
 
@@ -56,7 +56,7 @@ def get_mqtt_client():
         client = mqtt.Client()
         client.connect(current_app.config["MQTT_BROKER"])
         g.mqtt_client = client
-        logging.warning("MQTT client created")
+        logging.info("MQTT client created")
     return g.mqtt_client
 
 

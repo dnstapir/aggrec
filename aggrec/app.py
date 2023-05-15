@@ -22,7 +22,7 @@ def create_app(config_filename: Optional[str] = None):
 
             params["host"] = params["host"].replace("mongomock://", "mongodb://")
             params["mongo_client_class"] = mongomock.MongoClient
-        logging.warning("Mongoengine connect %s", json.dumps(params))
+        logging.info("Mongoengine connect %s", json.dumps(params))
         mongoengine.connect(**params, tz_aware=True)
 
     app.register_blueprint(aggregate_bp)
