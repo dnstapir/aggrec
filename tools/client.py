@@ -62,7 +62,7 @@ print(resp2.headers)
 print(resp2.text)
 
 # fetch payload
-payload_location = resp2.json()["payload_location"]
+payload_location = resp2.json()["content_location"]
 resp3 = session.get(payload_location)
 print(resp3)
 print(resp3.headers)

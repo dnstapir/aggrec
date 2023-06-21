@@ -81,7 +81,7 @@ def get_new_aggregate_event_message(metadata: AggregateMetadata) -> dict:
             current_app.config["METADATA_BASE_URL"],
             f"/aggregates/{metadata.id}",
         ),
-        "payload_location": urljoin(
+        "content_location": urljoin(
             current_app.config["METADATA_BASE_URL"],
             f"/aggregates/{metadata.id}/payload",
         ),
@@ -146,7 +146,7 @@ def get_aggregate_metadata(aggregate_id: str):
             "headers": metadata.http_headers,
             "content_type": metadata.content_type,
             "content_length": metadata.content_length,
-            "payload_location": urljoin(
+            "content_location": urljoin(
                 current_app.config["METADATA_BASE_URL"],
                 f"/aggregates/{aggregate_id}/payload",
             ),
