@@ -21,7 +21,7 @@ class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
         try:
             with open(filename, "rb") as fp:
                 return load_pem_public_key(fp.read())
-        except FileNotFoundError as exc:
+        except FileNotFoundError:
             raise KeyError(key_id)
 
 
@@ -46,7 +46,7 @@ class RequestVerifier:
             self.logger.warning("Invalid HTTP signature")
             raise Unauthorized
         except Exception as exc:
-            self.logger.warning("Unable to verify HTTP signature")
+            self.logger.warning("Unable to verify HTTP signature", exc_info=exc)
             raise BadRequest
         if len(results) == 0:
             self.logger.error("No results")

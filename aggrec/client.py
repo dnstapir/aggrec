@@ -1,7 +1,6 @@
 import argparse
 import hashlib
 import logging
-import os
 from urllib.parse import urljoin
 
 import http_sfv
