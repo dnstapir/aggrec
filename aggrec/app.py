@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import Optional
 
 import mongoengine
@@ -12,7 +13,10 @@ from .aggregates import bp as aggregate_bp
 def create_app(config_filename: Optional[str] = None):
     app = Flask(__name__)
 
+    config_filename = config_filename or os.environ.get("AGGREC_CONFIG")
+
     if config_filename:
+        logging.info("Reading configuration from %s", config_filename)
         app.config.from_file(config_filename, load=toml.load)
 
     if mongodb_host := app.config.get("MONGODB_HOST"):
