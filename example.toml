@@ -1,3 +1,5 @@
+CLIENTS_DATABASE = "clients"
+
 METADATA_BASE_URL = "http://127.0.0.1:5000"
 
 S3_ENDPOINT_URL = "http://localhost:9000"

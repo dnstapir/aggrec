@@ -32,7 +32,9 @@ ALLOWED_CONTENT_TYPES = ["application/vnd.apache.parquet", "application/binary"]
 
 def get_http_request_verifier() -> RequestVerifier:
     if "http_request_verifier" not in g:
-        g.http_request_verifier = RequestVerifier()
+        g.http_request_verifier = RequestVerifier(
+            client_database=current_app.config["CLIENTS_DATABASE"],
+        )
         logging.info("HTTP request verifier created")
     return g.http_request_verifier
 
@@ -97,9 +99,9 @@ def create_aggregate(aggregate_type: str):
         raise BadRequest(description="Content-Type not supported")
 
     res = get_http_request_verifier().verify(request)
-    mqtt_client = get_mqtt_client()
-
     creator = res.get("keyid")
+
+    mqtt_client = get_mqtt_client()
 
     aggregate_id = ObjectId()
     location = f"/aggregates/{aggregate_id}"
