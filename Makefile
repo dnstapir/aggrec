@@ -6,7 +6,7 @@ all:
 container:
 	docker build -t $(CONTAINER) .
 
-server: test.pem
+server: clients clients/test.pem
 	flask --app 'aggrec.app:create_app("../example.toml")' run --debug
 
 client: test-private.pem
@@ -17,7 +17,10 @@ keys: test.pem
 test-private.pem:
 	openssl ecparam -genkey -name prime256v1 -noout -out $@
 
-test.pem: test-private.pem
+clients:
+	mkdir clients
+
+clients/test.pem: test-private.pem
 	openssl ec -in $< -pubout -out $@
 	
 test:
@@ -32,6 +35,7 @@ reformat:
 	
 clean:
 	rm -f *.pem
+	rm -fr clients
 
 realclean: clean
 	poetry env remove --all
