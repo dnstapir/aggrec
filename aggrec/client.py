@@ -35,13 +35,25 @@ def main() -> None:
         help="Aggregate payload",
     )
     parser.add_argument(
-        "--key-id",
+        "--tls-cert-file",
+        metavar="filename",
+        help="TLS client certificate",
+        required=False,
+    )
+    parser.add_argument(
+        "--tls-key-file",
+        metavar="filename",
+        help="TLS client private key",
+        required=False,
+    )
+    parser.add_argument(
+        "--http-key-id",
         metavar="id",
         help="HTTP signature key id",
         required=True,
     )
     parser.add_argument(
-        "--key-file",
+        "--http-key-file",
         metavar="filename",
         help="HTTP signature key file",
         required=True,
@@ -72,7 +84,25 @@ def main() -> None:
 
     session = requests.Session()
 
-    key_resolver = MyHTTPSignatureKeyResolver(args.key_file)
+    if args.tls_cert_file and args.tls_key_file:
+        session.cert = (args.tls_cert_file, args.tls_key_file)
+    elif args.tls_cert_file:
+        session.cert = args.tls_cert_file
+
+    parser.add_argument(
+        "--tls-cert-file",
+        metavar="filename",
+        help="TLS client certificate",
+        required=False,
+    )
+    parser.add_argument(
+        "--tls-key-file",
+        metavar="filename",
+        help="TLS client private key",
+        required=False,
+    )
+
+    key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
     signer = HTTPMessageSigner(
         signature_algorithm=algorithms.ECDSA_P256_SHA256, key_resolver=key_resolver
     )
@@ -90,7 +120,7 @@ def main() -> None:
 
     signer.sign(
         req,
-        key_id=args.key_id,
+        key_id=args.http_key_id,
         label="client",
         covered_component_ids=("content-type", "content-digest", "content-length"),
         include_alg=True,
