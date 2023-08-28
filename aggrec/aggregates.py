@@ -10,7 +10,7 @@ from flask import Blueprint, Response, current_app, g, request, send_file
 from werkzeug.exceptions import BadRequest, NotFound
 
 from .db_models import AggregateMetadata
-from .helpers import RequestVerifier
+from .helpers import RequestVerifier, rfc_3339_datetime_now
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,8 @@ def get_http_headers() -> Dict[str, str]:
 def get_new_aggregate_event_message(metadata: AggregateMetadata) -> dict:
     """Get new aggregate event message"""
     return {
+        "version": 1,
+        "timestamp": rfc_3339_datetime_now(),
         "type": "new_aggregate",
         "aggregate_id": str(metadata.id),
         "aggregate_type": metadata.aggregate_type.value,

@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import Request
@@ -53,3 +54,8 @@ class RequestVerifier:
             raise InternalServerError
         # TOOD: handle multiple signatures
         return results[0].parameters
+
+
+def rfc_3339_datetime_now() -> str:
+    """Return current time(UTC) as ISO 8601 timestamp"""
+    return str(datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
