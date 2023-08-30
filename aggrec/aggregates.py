@@ -4,6 +4,7 @@ from typing import Dict
 from urllib.parse import urljoin
 
 import boto3
+import bson
 import paho.mqtt.client as mqtt
 from bson.objectid import ObjectId
 from flask import Blueprint, Response, current_app, g, request, send_file
@@ -141,7 +142,12 @@ def create_aggregate(aggregate_type: str):
 
 @bp.route("/aggregates/<aggregate_id>", methods=["GET"])
 def get_aggregate_metadata(aggregate_id: str):
-    if metadata := AggregateMetadata.objects(id=ObjectId(aggregate_id)).first():
+    try:
+        aggregate_object_id = ObjectId(aggregate_id)
+    except bson.errors.InvalidId:
+        raise NotFound
+
+    if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
         return {
             "aggregate_id": str(metadata.id),
             "aggregate_type": metadata.aggregate_type.value,
@@ -161,7 +167,12 @@ def get_aggregate_metadata(aggregate_id: str):
 
 @bp.route("/aggregates/<aggregate_id>/payload", methods=["GET"])
 def get_aggregate_payload(aggregate_id: str):
-    if metadata := AggregateMetadata.objects(id=ObjectId(aggregate_id)).first():
+    try:
+        aggregate_object_id = ObjectId(aggregate_id)
+    except bson.errors.InvalidId:
+        raise NotFound
+
+    if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
         s3 = get_s3_client()
         s3_obj = s3.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
         metadata_location = f"/aggregates/{aggregate_id}"
