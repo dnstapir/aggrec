@@ -18,6 +18,7 @@ http-message-signatures = "^0.4.4"
 paho-mqtt = "^1.6.1"
 flask = "^2.3.2"
 requests = "^2.30.0"
+paste = "^3.5.3"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.12.0"

@@ -1,6 +1,7 @@
 import argparse
 import logging
 
+from paste.translogger import TransLogger
 from waitress import serve
 
 from .app import create_app
@@ -31,7 +32,9 @@ def main() -> None:
 
     app = create_app(args.config)
 
-    serve(app, listen=f"{args.host}:{args.port}")
+    serve(
+        TransLogger(app, setup_console_handler=True), listen=f"{args.host}:{args.port}"
+    )
 
 
 if __name__ == "__main__":
