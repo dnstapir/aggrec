@@ -1,10 +1,10 @@
 import json
 import logging
 import os
+import tomllib
 from typing import Optional
 
 import mongoengine
-import toml
 from flask import Flask
 
 from .aggregates import bp as aggregate_bp
@@ -17,7 +17,7 @@ def create_app(config_filename: Optional[str] = None):
 
     if config_filename:
         logging.info("Reading configuration from %s", config_filename)
-        app.config.from_file(config_filename, load=toml.load)
+        app.config.from_file(config_filename, load=tomllib.load, text=False)
 
     if mongodb_host := app.config.get("MONGODB_HOST"):
         params = {"host": mongodb_host}

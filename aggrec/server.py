@@ -5,8 +5,6 @@ from waitress import serve
 
 from .app import create_app
 
-DEFAULT_CONFIG = "/etc/aggrec.yaml"
-
 
 def main() -> None:
     """Main function"""
@@ -14,11 +12,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Aggregate Receiver")
 
     parser.add_argument(
-        "--config",
-        dest="config",
-        metavar="filename",
-        help="Configuration file",
-        default=DEFAULT_CONFIG,
+        "--config", dest="config", metavar="filename", help="Configuration file"
     )
     parser.add_argument(
         "--host", dest="host", help="Host address to bind to", default="127.0.0.1"

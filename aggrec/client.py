@@ -89,19 +89,6 @@ def main() -> None:
     elif args.tls_cert_file:
         session.cert = args.tls_cert_file
 
-    parser.add_argument(
-        "--tls-cert-file",
-        metavar="filename",
-        help="TLS client certificate",
-        required=False,
-    )
-    parser.add_argument(
-        "--tls-key-file",
-        metavar="filename",
-        help="TLS client private key",
-        required=False,
-    )
-
     key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
     signer = HTTPMessageSigner(
         signature_algorithm=algorithms.ECDSA_P256_SHA256, key_resolver=key_resolver
