@@ -15,7 +15,7 @@ def main() -> None:
         "--config", dest="config", metavar="filename", help="Configuration file"
     )
     parser.add_argument(
-        "--host", dest="host", help="Host address to bind to", default="127.0.0.1"
+        "--host", dest="host", help="Host address to bind to", default="0.0.0.0"
     )
     parser.add_argument("--port", dest="port", help="Port to listen on", default=8080)
     parser.add_argument(
