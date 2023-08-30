@@ -1,10 +1,13 @@
-CONTAINER=	aggrec:latest
-
+CONTAINER=		ghcr.io/dnstapir/aggregate-receiver:latest
+CONTAINER_BASE=		aggrec:latest
 
 all:
 
 container:
-	docker build -t $(CONTAINER) .
+	docker build -t $(CONTAINER) -t $(CONTAINER_BASE) .
+
+push-container:
+	docker push $(CONTAINER)
 
 server: clients clients/test.pem
 	flask --app 'aggrec.app:create_app("../example.toml")' run --debug
