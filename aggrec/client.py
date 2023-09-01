@@ -96,7 +96,7 @@ def main() -> None:
 
     with open(args.aggregate, "rb") as fp:
         req = requests.Request(
-            "POST", urljoin(args.server, "/aggregate/histogram"), data=fp.read()
+            "POST", urljoin(args.server, f"/aggregate/{args.type}"), data=fp.read()
         )
 
     req = req.prepare()
