@@ -32,7 +32,7 @@ def main() -> None:
     parser.add_argument(
         "aggregate",
         metavar="filename",
-        help="Aggregate payload",
+        help="Aggregate payload",
     )
     parser.add_argument(
         "--tls-cert-file",
