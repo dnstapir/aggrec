@@ -1,0 +1,159 @@
+openapi: 3.1.0
+info:
+  title: DNS TAPIR Aggregate Receiver API
+  version: 0.0.1
+servers:
+  - url: /api/v1
+
+paths:
+
+  /aggregates/{aggregate_type}:
+    post:
+      summary: Create aggregate
+      operationId: create_aggregate
+      parameters:
+        - name: aggregate_type
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/aggregate_type'
+        - name: Content-Length
+          in: header
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+        - name: Content-Type
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/content_type'
+        - name: Content-Digest
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: Signature-Input
+          description: |
+            The following HTTP headers MUST be signed:
+
+              - Content-Length
+              - Content-Type
+              - Content-Digest
+
+            Derived components MUST NOT be included in the signature input.
+          in: header
+          required: false
+          schema:
+            type: string
+        - name: Signature
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        description: Aggregate as Apache Parquet
+        content:
+          application/vnd.apache.parquet:
+            schema: {}
+      responses:
+        "201":
+          description: Aggregate created
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+
+  /aggregates/{aggregate_id}:
+    get:
+      description: Get aggregate_metadata
+      operationId: get_aggregate_metadata
+      parameters:
+        - name: aggregate_id
+          in: path
+          description: Aggregate Id
+          required: true
+          schema:
+            $ref: '#/components/schemas/aggregate_id'
+      responses:
+        "200":
+          description: Aggregate metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/aggregate_metadata'
+
+  /aggregates/{aggregate_id}/payload:
+    get:
+      description: Get aggregate_payload
+      operationId: get_aggregate_payload
+      parameters:
+        - name: aggregate_id
+          in: path
+          description: Aggregate Id
+          required: true
+          schema:
+            $ref: '#/components/schemas/aggregate_id'
+      responses:
+        "200":
+          description: Aggregate as Apache Parquet
+          headers:
+            Link:
+              description: |
+                Linked resources (RFC 8288), rel="about" for metadata URL
+              schema:
+                type: string
+          content:
+            application/vnd.apache.parquet:
+              schema: {}
+
+
+components:
+  schemas:
+
+    aggregate_metadata:
+      description: Aggregate metadata
+      type: object
+      required:
+        - id
+        - aggregate_type
+        - created
+        - content_type
+        - content_payload_location
+      properties:
+        id:
+          $ref: '#/components/schemas/aggregate_id'
+        type:
+          $ref: '#/components/schemas/aggregate_type'
+        created:
+          type: string
+          format: date-time
+        creator:
+          type: string
+        headers:
+          type: object
+        content_type:
+          $ref: '#/components/schemas/content_type'
+        content_length:
+          type: integer
+          format: int64
+          minimum: 0
+        content_location:
+          type: string
+          format: uri
+
+    aggregate_id:
+      type: string
+
+    aggregate_type:
+      type: string
+      enum:
+        - histogram
+        - vector
+
+    content_type:
+      type: string
+      enum:
+        - "application/vnd.apache.parquet"
