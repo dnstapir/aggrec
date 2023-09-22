@@ -7,11 +7,12 @@ import boto3
 import bson
 import paho.mqtt.client as mqtt
 from bson.objectid import ObjectId
-from flask import Blueprint, Response, current_app, g, request, send_file
+from flask import Blueprint, Response, current_app, g, jsonify, request, send_file
 from werkzeug.exceptions import BadRequest, NotFound
 
 from .db_models import AggregateMetadata
 from .helpers import RequestVerifier, rfc_3339_datetime_now
+from .openapi import OPENAPI_DICT
 
 logger = logging.getLogger(__name__)
 
@@ -84,16 +85,21 @@ def get_new_aggregate_event_message(metadata: AggregateMetadata) -> dict:
         "creator": str(metadata.creator),
         "metadata_location": urljoin(
             current_app.config["METADATA_BASE_URL"],
-            f"/aggregates/{metadata.id}",
+            f"/api/v1/aggregates/{metadata.id}",
         ),
         "content_location": urljoin(
             current_app.config["METADATA_BASE_URL"],
-            f"/aggregates/{metadata.id}/payload",
+            f"/api/v1/aggregates/{metadata.id}/payload",
         ),
     }
 
 
-@bp.route("/aggregate/<aggregate_type>", methods=["POST"])
+@bp.route("/api/v1/openapi", methods=["GET"])
+def get_openapi():
+    return jsonify(OPENAPI_DICT)
+
+
+@bp.route("/api/v1/aggregate/<aggregate_type>", methods=["POST"])
 def create_aggregate(aggregate_type: str):
     if aggregate_type not in ALLOWED_AGGREGATE_TYPES:
         raise BadRequest(description="Aggregate type not supported")
@@ -107,7 +113,7 @@ def create_aggregate(aggregate_type: str):
     mqtt_client = get_mqtt_client()
 
     aggregate_id = ObjectId()
-    location = f"/aggregates/{aggregate_id}"
+    location = f"/api/v1/aggregates/{aggregate_id}"
 
     s3_bucket = current_app.config["S3_BUCKET"]
     s3_object_key = f"type={aggregate_type}/creator={creator}/{aggregate_id}"
@@ -140,7 +146,7 @@ def create_aggregate(aggregate_type: str):
     return Response(status=201, headers={"Location": location})
 
 
-@bp.route("/aggregates/<aggregate_id>", methods=["GET"])
+@bp.route("/api/v1/aggregates/<aggregate_id>", methods=["GET"])
 def get_aggregate_metadata(aggregate_id: str):
     try:
         aggregate_object_id = ObjectId(aggregate_id)
@@ -158,14 +164,16 @@ def get_aggregate_metadata(aggregate_id: str):
             "content_length": metadata.content_length,
             "content_location": urljoin(
                 current_app.config["METADATA_BASE_URL"],
-                f"/aggregates/{aggregate_id}/payload",
+                f"/api/v1/aggregates/{aggregate_id}/payload",
             ),
+            "s3_bucket": metadata.s3_bucket,
+            "s3_object_key": metadata.s3_object_key,
         }
 
     raise NotFound
 
 
-@bp.route("/aggregates/<aggregate_id>/payload", methods=["GET"])
+@bp.route("/api/v1/aggregates/<aggregate_id>/payload", methods=["GET"])
 def get_aggregate_payload(aggregate_id: str):
     try:
         aggregate_object_id = ObjectId(aggregate_id)
@@ -175,7 +183,7 @@ def get_aggregate_payload(aggregate_id: str):
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
         s3 = get_s3_client()
         s3_obj = s3.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
-        metadata_location = f"/aggregates/{aggregate_id}"
+        metadata_location = f"/api/v1/aggregates/{aggregate_id}"
         response = send_file(s3_obj["Body"], mimetype=metadata.content_type)
         response.headers.update(
             {

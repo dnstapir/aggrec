@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aggrec"
-version = "0.1.0"
+version = "0.2.0"
 description = "DNS TAPIR Aggregate Receiver"
 authors = ["Jakob Schlyter <jakob@kirei.se>"]
 readme = "README.md"
@@ -19,6 +19,7 @@ paho-mqtt = "^1.6.1"
 flask = "^2.3.2"
 requests = "^2.30.0"
 paste = "^3.5.3"
+pyyaml = "^6.0.1"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.12.0"

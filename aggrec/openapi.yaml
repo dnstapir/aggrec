@@ -143,6 +143,10 @@ components:
         content_location:
           type: string
           format: uri
+        s3_bucket:
+          type: string
+        s3_object_key:
+          type: string
 
     aggregate_id:
       type: string
