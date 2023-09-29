@@ -10,7 +10,7 @@ push-container:
 	docker push $(CONTAINER)
 
 server: clients clients/test.pem
-	flask --app 'aggrec.app:create_app("../example.toml")' run --debug
+	poetry run flask --app 'aggrec.app:create_app("../example.toml")' run --debug
 
 client: test-private.pem
 	python3 tools/client.py
@@ -27,14 +27,14 @@ clients/test.pem: test-private.pem
 	openssl ec -in $< -pubout -out $@
 	
 test:
-	pytest --isort --black --pylama
+	poetry run pytest --isort --black --pylama
 
 lint:
-	pylama .
+	poetry run pylama
 
 reformat:
-	isort .
-	black .
+	poetry run isort .
+	poetry run black .
 	
 clean:
 	rm -f *.pem
