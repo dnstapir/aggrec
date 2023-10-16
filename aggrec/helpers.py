@@ -1,6 +1,8 @@
+import hashlib
 import logging
 from datetime import datetime, timezone
 
+import http_sfv
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import Request
 from http_message_signatures import (
@@ -11,6 +13,8 @@ from http_message_signatures import (
 from http_message_signatures.exceptions import InvalidSignature
 from werkzeug.exceptions import BadRequest, InternalServerError, Unauthorized
 from werkzeug.utils import safe_join
+
+HASH_ALGORITHMS = {"sha-256": hashlib.sha256}
 
 
 class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
@@ -52,8 +56,26 @@ class RequestVerifier:
         if len(results) == 0:
             self.logger.error("No results")
             raise InternalServerError
-        # TOOD: handle multiple signatures
-        return results[0].parameters
+
+        for result in results:
+            content_digest = result.covered_components.get('"content-digest"')
+            if content_digest is None:
+                self.logger.warning("Content-Digest not covered by signature")
+                continue
+
+            content_digest_value = http_sfv.Dictionary()
+            content_digest_value.parse(content_digest.encode())
+
+            for alg, func in HASH_ALGORITHMS.items():
+                if digest := content_digest_value.get(alg):
+                    if digest.value == func(request.data).digest():
+                        self.logger.debug("Content-Digest verified")
+                        return result.parameters
+                    else:
+                        self.logger.warning("Content-Digest verification failed")
+
+        self.logger.warning("No usable signature")
+        raise Unauthorized
 
 
 def rfc_3339_datetime_now() -> str:
