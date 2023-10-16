@@ -110,6 +110,8 @@ def create_aggregate(aggregate_type: str):
     res = get_http_request_verifier().verify(request)
     creator = res.get("keyid")
 
+    logger.info("Create aggregate request by keyid=%s", creator)
+
     mqtt_client = get_mqtt_client()
 
     aggregate_id = ObjectId()
