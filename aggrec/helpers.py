@@ -14,7 +14,7 @@ from http_message_signatures.exceptions import InvalidSignature
 from werkzeug.exceptions import BadRequest, InternalServerError, Unauthorized
 from werkzeug.utils import safe_join
 
-HASH_ALGORITHMS = {"sha-256": hashlib.sha256}
+HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
 
 
 class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
