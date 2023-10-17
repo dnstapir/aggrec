@@ -1,7 +1,6 @@
 import hashlib
 import logging
 from datetime import datetime, timezone
-from typing import List
 
 import http_sfv
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
@@ -32,35 +31,40 @@ class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
             raise KeyError(key_id)
 
 
+class ContentDigestException(ValueError):
+    pass
+
+
+class InvalidContentDigest(ContentDigestException):
+    pass
+
+
+class UnsupportedContentDigestAlgorithm(ContentDigestException):
+    pass
+
+
+class ContentDigestMissing(ContentDigestException):
+    pass
+
+
 class RequestVerifier:
     def __init__(self, client_database: str):
         self.algorithm = algorithms.ECDSA_P256_SHA256
         self.key_resolver = MyHTTPSignatureKeyResolver(client_database)
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
-    def verify_content_digest(
-        self, request: Request, results: List[VerifyResult]
-    ) -> dict:
-        """Verify request Content-Digest against results"""
-        for result in results:
-            content_digest = result.covered_components.get('"content-digest"')
-            if content_digest is None:
-                self.logger.warning("Content-Digest not covered by signature")
-                continue
-
+    def verify_content_digest(self, result: VerifyResult, request: Request):
+        """Verify Content-Digest"""
+        if content_digest := result.covered_components.get('"content-digest"'):
             content_digest_value = http_sfv.Dictionary()
             content_digest_value.parse(content_digest.encode())
-
             for alg, func in HASH_ALGORITHMS.items():
                 if digest := content_digest_value.get(alg):
                     if digest.value == func(request.data).digest():
-                        self.logger.debug("Content-Digest verified")
-                        return result.parameters
-                    else:
-                        self.logger.warning("Content-Digest verification failed")
-
-        self.logger.warning("No usable signatures")
-        raise Unauthorized
+                        return
+                    raise InvalidContentDigest
+            raise UnsupportedContentDigestAlgorithm
+        raise ContentDigestMissing
 
     def verify(self, request: Request) -> dict:
         """Verify request and return signer"""
@@ -79,7 +83,22 @@ class RequestVerifier:
         except Exception as exc:
             self.logger.warning("Unable to verify HTTP signature", exc_info=exc)
             raise BadRequest
-        return self.verify_content_digest(request, results)
+
+        for result in results:
+            try:
+                self.verify_content_digest(result, request)
+                self.logger.debug("Content-Digest verified")
+                return result.parameters
+            except InvalidContentDigest:
+                self.logger.warning("Content-Digest verification failed")
+                raise Unauthorized
+            except UnsupportedContentDigestAlgorithm:
+                self.logger.debug("Unsupported Content-Digest algorithm")
+            except ContentDigestMissing:
+                self.logger.debug("Content-Digest header missing")
+
+        self.logger.warning("Unable to verify Content-Digest")
+        raise Unauthorized
 
 
 def rfc_3339_datetime_now() -> str:
