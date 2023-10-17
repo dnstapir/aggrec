@@ -1,6 +1,7 @@
 import hashlib
 import logging
 from datetime import datetime, timezone
+from typing import List
 
 import http_sfv
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
@@ -8,10 +9,11 @@ from flask import Request
 from http_message_signatures import (
     HTTPMessageVerifier,
     HTTPSignatureKeyResolver,
+    VerifyResult,
     algorithms,
 )
 from http_message_signatures.exceptions import InvalidSignature
-from werkzeug.exceptions import BadRequest, InternalServerError, Unauthorized
+from werkzeug.exceptions import BadRequest, Unauthorized
 from werkzeug.utils import safe_join
 
 HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
@@ -36,27 +38,10 @@ class RequestVerifier:
         self.key_resolver = MyHTTPSignatureKeyResolver(client_database)
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
-    def verify(self, request: Request) -> dict:
-        """Verify request and return signer"""
-        verifier = HTTPMessageVerifier(
-            signature_algorithm=self.algorithm,
-            key_resolver=self.key_resolver,
-        )
-        try:
-            results = verifier.verify(request)
-        except KeyError as exc:
-            self.logger.warning("Unknown HTTP signature key: %s", str(exc))
-            raise Unauthorized
-        except InvalidSignature:
-            self.logger.warning("Invalid HTTP signature")
-            raise Unauthorized
-        except Exception as exc:
-            self.logger.warning("Unable to verify HTTP signature", exc_info=exc)
-            raise BadRequest
-        if len(results) == 0:
-            self.logger.error("No results")
-            raise InternalServerError
-
+    def verify_content_digest(
+        self, request: Request, results: List[VerifyResult]
+    ) -> dict:
+        """Verify request Content-Digest against results"""
         for result in results:
             content_digest = result.covered_components.get('"content-digest"')
             if content_digest is None:
@@ -74,8 +59,27 @@ class RequestVerifier:
                     else:
                         self.logger.warning("Content-Digest verification failed")
 
-        self.logger.warning("No usable signature")
+        self.logger.warning("No usable signatures")
         raise Unauthorized
+
+    def verify(self, request: Request) -> dict:
+        """Verify request and return signer"""
+        verifier = HTTPMessageVerifier(
+            signature_algorithm=self.algorithm,
+            key_resolver=self.key_resolver,
+        )
+        try:
+            results = verifier.verify(request)
+        except KeyError as exc:
+            self.logger.warning("Unknown HTTP signature key: %s", str(exc))
+            raise Unauthorized
+        except InvalidSignature:
+            self.logger.warning("Invalid HTTP signature")
+            raise Unauthorized
+        except Exception as exc:
+            self.logger.warning("Unable to verify HTTP signature", exc_info=exc)
+            raise BadRequest
+        return self.verify_content_digest(request, results)
 
 
 def rfc_3339_datetime_now() -> str:
