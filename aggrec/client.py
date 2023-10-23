@@ -14,6 +14,7 @@ from http_message_signatures import (
 )
 
 DEFAULT_CONTENT_TYPE = "application/vnd.apache.parquet"
+DEFAULT_COVERED_COMPONENT_IDS = ["content-type", "content-digest", "content-length"]
 
 
 class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
@@ -96,6 +97,8 @@ def main() -> None:
         signature_algorithm=algorithms.ECDSA_P256_SHA256, key_resolver=key_resolver
     )
 
+    covered_component_ids = DEFAULT_COVERED_COMPONENT_IDS
+
     with open(args.aggregate, "rb") as fp:
         req = requests.Request(
             "POST",
@@ -104,6 +107,7 @@ def main() -> None:
         )
         if args.gzip:
             req.headers["Content-Encoding"] = "gzip"
+            covered_component_ids.append("content-encoding")
 
     req = req.prepare()
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
@@ -115,7 +119,7 @@ def main() -> None:
         req,
         key_id=args.http_key_id,
         label="client",
-        covered_component_ids=("content-type", "content-digest", "content-length"),
+        covered_component_ids=covered_component_ids,
         include_alg=True,
     )
 
