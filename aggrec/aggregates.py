@@ -23,6 +23,7 @@ METADATA_HTTP_HEADERS = [
     "Content-Length",
     "Content-Type",
     "Content-Digest",
+    "Content-Encoding",
     "Signature",
     "Signature-Input",
 ]
