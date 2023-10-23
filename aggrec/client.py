@@ -1,4 +1,5 @@
 import argparse
+import gzip
 import hashlib
 import logging
 from urllib.parse import urljoin
@@ -72,8 +73,9 @@ def main() -> None:
         default="histogram",
     )
     parser.add_argument(
-        "--debug", dest="debug", action="store_true", help="Enable debugging"
+        "--gzip", action="store_true", help="Compress payload using GZIP"
     )
+    parser.add_argument("--debug", action="store_true", help="Enable debugging")
 
     args = parser.parse_args()
 
@@ -98,8 +100,10 @@ def main() -> None:
         req = requests.Request(
             "POST",
             urljoin(args.server, f"/api/v1/aggregate/{args.type}"),
-            data=fp.read(),
+            data=gzip.compress(fp.read()) if args.gzip else fp.read(),
         )
+        if args.gzip:
+            req.headers["Content-Encoding"] = "gzip"
 
     req = req.prepare()
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
@@ -120,7 +124,9 @@ def main() -> None:
 
     resp = session.send(req)
     resp.raise_for_status()
+
     print(resp)
+    print(resp.headers)
     print(resp.text)
 
 
