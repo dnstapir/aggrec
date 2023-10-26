@@ -39,6 +39,8 @@ ALLOWED_AGGREGATE_TYPES = ["histogram", "vector"]
 
 ALLOWED_CONTENT_TYPES = ["application/vnd.apache.parquet", "application/binary"]
 
+router = APIRouter()
+
 
 class AggregateType(str, Enum):
     histogram = "histogram"
@@ -57,8 +59,24 @@ class AggregateMetadataResponse(BaseModel):
     s3_bucket: str
     s3_object_key: str
 
-
-router = APIRouter()
+    @classmethod
+    def from_db_model(cls, metadata: AggregateMetadata, settings: Settings):
+        aggregate_id = str(metadata.id)
+        return cls(
+            aggregate_id=aggregate_id,
+            aggregate_type=metadata.aggregate_type.value,
+            created=metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            creator=str(metadata.creator),
+            headers=metadata.http_headers,
+            content_type=metadata.content_type,
+            content_length=metadata.content_length,
+            content_location=urljoin(
+                settings.metadata_base_url,
+                f"/api/v1/aggregates/{aggregate_id}/payload",
+            ),
+            s3_bucket=metadata.s3_bucket,
+            s3_object_key=metadata.s3_object_key,
+        )
 
 
 @lru_cache
@@ -190,21 +208,7 @@ def get_aggregate_metadata(
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
-        return AggregateMetadataResponse(
-            aggregate_id=str(metadata.id),
-            aggregate_type=metadata.aggregate_type.value,
-            created=metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            creator=str(metadata.creator),
-            headers=metadata.http_headers,
-            content_type=metadata.content_type,
-            content_length=metadata.content_length,
-            content_location=urljoin(
-                settings.metadata_base_url,
-                f"/api/v1/aggregates/{aggregate_id}/payload",
-            ),
-            s3_bucket=metadata.s3_bucket,
-            s3_object_key=metadata.s3_object_key,
-        )
+        return AggregateMetadataResponse.from_db_model(metadata, settings)
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
 
