@@ -73,7 +73,7 @@ class RequestVerifier:
         )
         try:
             results = verifier.verify(request)
-        except KeyError as exc:
+        except KeyError:
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED, "Unknown HTTP signature key"
             )
