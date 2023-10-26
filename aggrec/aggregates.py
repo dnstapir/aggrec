@@ -1,22 +1,29 @@
 import json
 import logging
-from typing import Dict
+from enum import Enum
+from functools import lru_cache
+from typing import Annotated, Dict
 from urllib.parse import urljoin
 
+import aiobotocore.session
+import aiomqtt
 import boto3
 import bson
-import paho.mqtt.client as mqtt
 from bson.objectid import ObjectId
-from flask import Blueprint, Response, current_app, g, jsonify, request, send_file
-from werkzeug.exceptions import BadRequest, NotFound
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from .db_models import AggregateMetadata
-from .helpers import RequestVerifier, rfc_3339_datetime_now
-from .openapi import OPENAPI_DICT
+from .helpers import (
+    InvalidContentDigest,
+    InvalidSignature,
+    RequestVerifier,
+    rfc_3339_datetime_now,
+)
+from .settings import Settings
 
 logger = logging.getLogger(__name__)
-
-bp = Blueprint("aggregates", __name__)
 
 
 METADATA_HTTP_HEADERS = [
@@ -33,39 +40,56 @@ ALLOWED_AGGREGATE_TYPES = ["histogram", "vector"]
 ALLOWED_CONTENT_TYPES = ["application/vnd.apache.parquet", "application/binary"]
 
 
-def get_http_request_verifier() -> RequestVerifier:
-    if "http_request_verifier" not in g:
-        g.http_request_verifier = RequestVerifier(
-            client_database=current_app.config["CLIENTS_DATABASE"],
-        )
-        logging.info("HTTP request verifier created")
-    return g.http_request_verifier
+class AggregateType(str, Enum):
+    histogram = "histogram"
+    vector = "vector"
 
 
-def get_s3_client():
-    if "s3_client" not in g:
-        g.s3_client = boto3.client(
-            "s3",
-            endpoint_url=current_app.config["S3_ENDPOINT_URL"],
-            aws_access_key_id=current_app.config["S3_ACCESS_KEY_ID"],
-            aws_secret_access_key=current_app.config["S3_SECRET_ACCESS_KEY"],
-            aws_session_token=None,
-            config=boto3.session.Config(signature_version="s3v4"),
-        )
-        logging.info("S3 client created")
-    return g.s3_client
+class AggregateMetadataResponse(BaseModel):
+    aggregate_id: str
+    aggregate_type: AggregateType
+    created: str
+    creator: str
+    headers: dict
+    content_type: str
+    content_length: int
+    content_location: str
+    s3_bucket: str
+    s3_object_key: str
 
 
-def get_mqtt_client():
-    if "mqtt_client" not in g:
-        client = mqtt.Client()
-        client.connect(current_app.config["MQTT_BROKER"])
-        g.mqtt_client = client
-        logging.info("MQTT client created")
-    return g.mqtt_client
+router = APIRouter()
 
 
-def get_http_headers() -> Dict[str, str]:
+@lru_cache
+def get_settings():
+    return Settings()
+
+
+def http_request_verifier(settings: Annotated[Settings, Depends(get_settings)]):
+    return RequestVerifier(client_database=settings.clients_database)
+
+
+async def s3_client(settings: Annotated[Settings, Depends(get_settings)]):
+    logger.debug("Returning settings")
+    session = aiobotocore.session.AioSession()
+    async with session.create_client(
+        "s3",
+        endpoint_url=settings.s3_endpoint_url,
+        aws_access_key_id=settings.s3_access_key_id,
+        aws_secret_access_key=settings.s3_secret_access_key,
+        aws_session_token=None,
+        config=boto3.session.Config(signature_version="s3v4"),
+    ) as client:
+        yield client
+
+
+async def mqtt_client(settings: Annotated[Settings, Depends(get_settings)]):
+    async with aiomqtt.Client(settings.mqtt_broker) as client:
+        yield client
+
+
+def get_http_headers(request: Request) -> Dict[str, str]:
     """Get dictionary of relevant metadata HTTP headers"""
     res = {}
     for header in METADATA_HTTP_HEADERS:
@@ -74,7 +98,9 @@ def get_http_headers() -> Dict[str, str]:
     return res
 
 
-def get_new_aggregate_event_message(metadata: AggregateMetadata) -> dict:
+def get_new_aggregate_event_message(
+    metadata: AggregateMetadata, settings: Settings
+) -> dict:
     """Get new aggregate event message"""
     return {
         "version": 1,
@@ -85,114 +111,128 @@ def get_new_aggregate_event_message(metadata: AggregateMetadata) -> dict:
         "created": metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "creator": str(metadata.creator),
         "metadata_location": urljoin(
-            current_app.config["METADATA_BASE_URL"],
+            settings.metadata_base_url,
             f"/api/v1/aggregates/{metadata.id}",
         ),
         "content_location": urljoin(
-            current_app.config["METADATA_BASE_URL"],
+            settings.metadata_base_url,
             f"/api/v1/aggregates/{metadata.id}/payload",
         ),
     }
 
 
-@bp.route("/api/v1/openapi", methods=["GET"])
-def get_openapi():
-    return jsonify(OPENAPI_DICT)
-
-
-@bp.route("/api/v1/aggregate/<aggregate_type>", methods=["POST"])
-def create_aggregate(aggregate_type: str):
+@router.post("/api/v1/aggregate/{aggregate_type}")
+async def create_aggregate(
+    aggregate_type: AggregateType,
+    request: Request,
+    settings: Annotated[Settings, Depends(get_settings)],
+    s3_client: Annotated[aiobotocore.client.AioBaseClient, Depends(s3_client)],
+    mqtt_client: Annotated[aiomqtt.Client, Depends(mqtt_client)],
+    http_request_verifier: Annotated[RequestVerifier, Depends(http_request_verifier)],
+):
     if aggregate_type not in ALLOWED_AGGREGATE_TYPES:
-        raise BadRequest(description="Aggregate type not supported")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Aggregate type not supported")
 
-    if request.content_type not in ALLOWED_CONTENT_TYPES:
-        raise BadRequest(description="Content-Type not supported")
+    content_type = request.headers.get("content-type", None)
 
-    res = get_http_request_verifier().verify(request)
+    if content_type not in ALLOWED_CONTENT_TYPES:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Content-Type not supported")
+
+    res = await http_request_verifier.verify(request)
+
     creator = res.get("keyid")
-
     logger.info("Create aggregate request by keyid=%s", creator)
-
-    mqtt_client = get_mqtt_client()
 
     aggregate_id = ObjectId()
     location = f"/api/v1/aggregates/{aggregate_id}"
 
-    s3_bucket = current_app.config["S3_BUCKET"]
+    s3_bucket = settings.s3_bucket
     s3_object_key = f"type={aggregate_type}/creator={creator}/{aggregate_id}"
 
-    s3 = get_s3_client()
-    if current_app.config.get("S3_BUCKET_CREATE", False):
+    if settings.s3_bucket_create:
         try:
-            s3.create_bucket(Bucket=s3_bucket)
+            await s3_client.create_bucket(Bucket=s3_bucket)
         except Exception:
             pass
-    s3.put_object(Bucket=s3_bucket, Key=s3_object_key, Body=request.data)
+
+    content = await request.body()
+    content_length = len(content)
+
+    await s3_client.put_object(Bucket=s3_bucket, Key=s3_object_key, Body=content)
 
     metadata = AggregateMetadata(
         id=aggregate_id,
         aggregate_type=aggregate_type,
         creator=creator,
-        http_headers=get_http_headers(),
-        content_type=request.content_type,
-        content_length=request.content_length,
+        http_headers=get_http_headers(request),
+        content_type=content_type,
+        content_length=content_length,
         s3_bucket=s3_bucket,
         s3_object_key=s3_object_key,
     )
     metadata.save()
 
-    mqtt_client.publish(
-        current_app.config["MQTT_TOPIC"],
-        json.dumps(get_new_aggregate_event_message(metadata)),
+    await mqtt_client.publish(
+        settings.mqtt_topic,
+        json.dumps(get_new_aggregate_event_message(metadata, settings)),
     )
 
-    return Response(status=201, headers={"Location": location})
+    return Response(status_code=status.HTTP_201_CREATED, headers={"Location": location})
 
 
-@bp.route("/api/v1/aggregates/<aggregate_id>", methods=["GET"])
-def get_aggregate_metadata(aggregate_id: str):
+@router.get("/api/v1/aggregates/{aggregate_id}")
+def get_aggregate_metadata(
+    aggregate_id: str, settings: Annotated[Settings, Depends(get_settings)]
+) -> AggregateMetadataResponse:
     try:
         aggregate_object_id = ObjectId(aggregate_id)
     except bson.errors.InvalidId:
-        raise NotFound
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
-        return {
-            "aggregate_id": str(metadata.id),
-            "aggregate_type": metadata.aggregate_type.value,
-            "created": metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "creator": str(metadata.creator),
-            "headers": metadata.http_headers,
-            "content_type": metadata.content_type,
-            "content_length": metadata.content_length,
-            "content_location": urljoin(
-                current_app.config["METADATA_BASE_URL"],
+        return AggregateMetadataResponse(
+            aggregate_id=str(metadata.id),
+            aggregate_type=metadata.aggregate_type.value,
+            created=metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            creator=str(metadata.creator),
+            headers=metadata.http_headers,
+            content_type=metadata.content_type,
+            content_length=metadata.content_length,
+            content_location=urljoin(
+                settings.metadata_base_url,
                 f"/api/v1/aggregates/{aggregate_id}/payload",
             ),
-            "s3_bucket": metadata.s3_bucket,
-            "s3_object_key": metadata.s3_object_key,
-        }
+            s3_bucket=metadata.s3_bucket,
+            s3_object_key=metadata.s3_object_key,
+        )
 
-    raise NotFound
+    raise HTTPException(status.HTTP_404_NOT_FOUND)
 
 
-@bp.route("/api/v1/aggregates/<aggregate_id>/payload", methods=["GET"])
-def get_aggregate_payload(aggregate_id: str):
+@router.get("/api/v1/aggregates/{aggregate_id}/payload")
+async def get_aggregate_payload(
+    aggregate_id: str,
+    settings: Annotated[Settings, Depends(get_settings)],
+    s3_client: Annotated[aiobotocore.client.AioBaseClient, Depends(s3_client)],
+):
     try:
         aggregate_object_id = ObjectId(aggregate_id)
     except bson.errors.InvalidId:
-        raise NotFound
+        raise HTTPException(status.HTTP_404_NOT_FOUND)
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
-        s3 = get_s3_client()
-        s3_obj = s3.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
-        metadata_location = f"/api/v1/aggregates/{aggregate_id}"
-        response = send_file(s3_obj["Body"], mimetype=metadata.content_type)
-        response.headers.update(
-            {
-                "Link": f'{metadata_location}; rel="about"',
-                "Content-Length": metadata.content_length,
-            }
+        s3_obj = await s3_client.get_object(
+            Bucket=metadata.s3_bucket, Key=metadata.s3_object_key
         )
-        return response
-    raise NotFound
+        metadata_location = f"/api/v1/aggregates/{aggregate_id}"
+
+        return StreamingResponse(
+            content=s3_obj["Body"],
+            media_type=metadata.content_type,
+            headers={
+                "Link": f'{metadata_location}; rel="about"',
+                # "Content-Length": str(metadata.content_length),
+            },
+        )
+
+    raise HTTPException(status.HTTP_404_NOT_FOUND)

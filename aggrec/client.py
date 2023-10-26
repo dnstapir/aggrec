@@ -52,13 +52,13 @@ def main() -> None:
         "--http-key-id",
         metavar="id",
         help="HTTP signature key id",
-        required=True,
+        required=False,
     )
     parser.add_argument(
         "--http-key-file",
         metavar="filename",
         help="HTTP signature key file",
-        required=True,
+        required=False,
     )
     parser.add_argument(
         "--server",
@@ -92,11 +92,6 @@ def main() -> None:
     elif args.tls_cert_file:
         session.cert = args.tls_cert_file
 
-    key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
-    signer = HTTPMessageSigner(
-        signature_algorithm=algorithms.ECDSA_P256_SHA256, key_resolver=key_resolver
-    )
-
     covered_component_ids = DEFAULT_COVERED_COMPONENT_IDS
 
     with open(args.aggregate, "rb") as fp:
@@ -115,13 +110,18 @@ def main() -> None:
         http_sfv.Dictionary({"sha-256": hashlib.sha256(req.body).digest()})
     )
 
-    signer.sign(
-        req,
-        key_id=args.http_key_id,
-        label="client",
-        covered_component_ids=covered_component_ids,
-        include_alg=True,
-    )
+    if args.http_key_id:
+        key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
+        signer = HTTPMessageSigner(
+            signature_algorithm=algorithms.ECDSA_P256_SHA256, key_resolver=key_resolver
+        )
+        signer.sign(
+            req,
+            key_id=args.http_key_id,
+            label="client",
+            covered_component_ids=covered_component_ids,
+            include_alg=True,
+        )
 
     print(req.headers)
     print("")
@@ -132,6 +132,18 @@ def main() -> None:
     print(resp)
     print(resp.headers)
     print(resp.text)
+
+    location = resp.headers["location"]
+    resp = session.get(urljoin(args.server, location))
+    resp.raise_for_status()
+    print(resp)
+    print(resp.headers)
+
+    resp = session.get(resp.json()["content_location"])
+    resp.raise_for_status()
+    print(resp)
+    print(resp.headers)
+    print(len(resp.content))
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import http_sfv
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
-from flask import Request
+from fastapi import HTTPException, Request, status
 from http_message_signatures import (
     HTTPMessageVerifier,
     HTTPSignatureKeyResolver,
@@ -12,7 +12,6 @@ from http_message_signatures import (
     algorithms,
 )
 from http_message_signatures.exceptions import InvalidSignature
-from werkzeug.exceptions import BadRequest, Unauthorized
 from werkzeug.utils import safe_join
 
 HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
@@ -53,20 +52,20 @@ class RequestVerifier:
         self.key_resolver = MyHTTPSignatureKeyResolver(client_database)
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
-    def verify_content_digest(self, result: VerifyResult, request: Request):
+    async def verify_content_digest(self, result: VerifyResult, request: Request):
         """Verify Content-Digest"""
         if content_digest := result.covered_components.get('"content-digest"'):
             content_digest_value = http_sfv.Dictionary()
             content_digest_value.parse(content_digest.encode())
             for alg, func in HASH_ALGORITHMS.items():
                 if digest := content_digest_value.get(alg):
-                    if digest.value == func(request.data).digest():
+                    if digest.value == func(await request.body()).digest():
                         return
                     raise InvalidContentDigest
             raise UnsupportedContentDigestAlgorithm
         raise ContentDigestMissing
 
-    def verify(self, request: Request) -> dict:
+    async def verify(self, request: Request) -> dict:
         """Verify request and return signer"""
         verifier = HTTPMessageVerifier(
             signature_algorithm=self.algorithm,
@@ -75,30 +74,34 @@ class RequestVerifier:
         try:
             results = verifier.verify(request)
         except KeyError as exc:
-            self.logger.warning("Unknown HTTP signature key: %s", str(exc))
-            raise Unauthorized
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED, "Unknown HTTP signature key"
+            )
         except InvalidSignature:
-            self.logger.warning("Invalid HTTP signature")
-            raise Unauthorized
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid HTTP signature")
         except Exception as exc:
             self.logger.warning("Unable to verify HTTP signature", exc_info=exc)
-            raise BadRequest
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Unable to verify HTTP signature"
+            )
 
         for result in results:
             try:
-                self.verify_content_digest(result, request)
+                await self.verify_content_digest(result, request)
                 self.logger.debug("Content-Digest verified")
                 return result.parameters
             except InvalidContentDigest:
-                self.logger.warning("Content-Digest verification failed")
-                raise Unauthorized
+                raise HTTPException(
+                    status.HTTP_401_UNAUTHORIZED, "Content-Digest verification failed"
+                )
             except UnsupportedContentDigestAlgorithm:
                 self.logger.debug("Unsupported Content-Digest algorithm")
             except ContentDigestMissing:
                 self.logger.debug("Content-Digest header missing")
 
-        self.logger.warning("Unable to verify Content-Digest")
-        raise Unauthorized
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Unable to verify Content-Digest"
+        )
 
 
 def rfc_3339_datetime_now() -> str:

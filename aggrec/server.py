@@ -1,10 +1,40 @@
 import argparse
 import logging
+import os
+from functools import lru_cache
+from typing import Optional
 
-from paste.translogger import TransLogger
-from waitress import serve
+import mongoengine
+import uvicorn
+from fastapi import FastAPI
 
-from .app import create_app
+import aggrec.aggregates
+from aggrec.settings import Settings
+
+logger = logging.getLogger(__name__)
+
+app = FastAPI()
+
+
+def configure_app(config_filename: Optional[str]):
+    config_filename = config_filename or os.environ.get("AGGREC_CONFIG")
+    if config_filename:
+        logger.info("Reading configuration from %s", config_filename)
+        return Settings.from_file(config_filename)
+    else:
+        return Settings()
+
+
+def connect_mongodb(settings: Settings):
+    if mongodb_host := settings.mongodb_host:
+        params = {"host": mongodb_host}
+        if "host" in params and params["host"].startswith("mongomock://"):
+            import mongomock
+
+            params["host"] = params["host"].replace("mongomock://", "mongodb://")
+            params["mongo_client_class"] = mongomock.MongoClient
+        logger.info("Mongoengine connect %s", params)
+        mongoengine.connect(**params, tz_aware=True)
 
 
 def main() -> None:
@@ -30,11 +60,19 @@ def main() -> None:
     else:
         logging.basicConfig(level=logging.INFO)
 
-    app = create_app(args.config)
+    settings = configure_app(args.config)
 
-    serve(
-        TransLogger(app, setup_console_handler=True), listen=f"{args.host}:{args.port}"
-    )
+    @lru_cache
+    def get_settings_override():
+        logger.debug("Returning settings")
+        return settings
+
+    app.include_router(aggrec.aggregates.router)
+    app.dependency_overrides[aggrec.aggregates.get_settings] = get_settings_override
+
+    connect_mongodb(settings)
+
+    uvicorn.run("aggrec.server:app", host=args.host, port=args.port, log_level="info")
 
 
 if __name__ == "__main__":

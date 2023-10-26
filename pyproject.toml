@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aggrec"
-version = "0.3.0"
+version = "0.4.0"
 description = "DNS TAPIR Aggregate Receiver"
 authors = ["Jakob Schlyter <jakob@kirei.se>"]
 readme = "README.md"
@@ -11,15 +11,17 @@ aggrec_client = "aggrec.client:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-boto3 = "^1.26.133"
 mongoengine = "^0.27.0"
-waitress = "^2.1.2"
 http-message-signatures = "^0.4.4"
-paho-mqtt = "^1.6.1"
-flask = "^2.3.2"
 requests = "^2.30.0"
-paste = "^3.5.3"
-pyyaml = "^6.0.1"
+fastapi = "^0.104.0"
+uvicorn = "^0.23.2"
+pydantic-settings = "^2.0.3"
+werkzeug = "^3.0.1"
+boto3 = "^1.26.133"
+aiobotocore = "^2.7.0"
+aiomqtt = "^1.2.1"
+setuptools = "^68.2.2"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.12.0"
