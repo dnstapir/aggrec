@@ -13,7 +13,7 @@ from aggrec.settings import Settings
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
+app = None
 
 
 def configure_app(config_filename: Optional[str]):
@@ -37,30 +37,10 @@ def connect_mongodb(settings: Settings):
         mongoengine.connect(**params, tz_aware=True)
 
 
-def main() -> None:
-    """Main function"""
+def create_app(config_filename: Optional[str]):
+    app = FastAPI()
 
-    parser = argparse.ArgumentParser(description="Aggregate Receiver")
-
-    parser.add_argument(
-        "--config", dest="config", metavar="filename", help="Configuration file"
-    )
-    parser.add_argument(
-        "--host", dest="host", help="Host address to bind to", default="0.0.0.0"
-    )
-    parser.add_argument("--port", dest="port", help="Port to listen on", default=8080)
-    parser.add_argument(
-        "--debug", dest="debug", action="store_true", help="Enable debugging"
-    )
-
-    args = parser.parse_args()
-
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-
-    settings = configure_app(args.config)
+    settings = configure_app(config_filename)
 
     @lru_cache
     def get_settings_override():
@@ -72,7 +52,39 @@ def main() -> None:
 
     connect_mongodb(settings)
 
-    uvicorn.run("aggrec.server:app", host=args.host, port=args.port, log_level="info")
+    return app
+
+
+def main() -> None:
+    """Main function"""
+
+    parser = argparse.ArgumentParser(description="Aggregate Receiver")
+
+    parser.add_argument(
+        "--config", dest="config", metavar="filename", help="Configuration file"
+    )
+    parser.add_argument(
+        "--host", dest="host", help="Host address to bind to", default="0.0.0.0"
+    )
+    parser.add_argument(
+        "--port", dest="port", type=int, help="Port to listen on", default=8080
+    )
+    parser.add_argument(
+        "--debug", dest="debug", action="store_true", help="Enable debugging"
+    )
+
+    args = parser.parse_args()
+
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+        log_level = "debug"
+    else:
+        logging.basicConfig(level=logging.INFO)
+        log_level = "info"
+
+    app = create_app(args.config)
+
+    uvicorn.run(app, host=args.host, port=args.port, log_level=log_level)
 
 
 if __name__ == "__main__":

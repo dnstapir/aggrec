@@ -10,7 +10,7 @@ push-container:
 	docker push $(CONTAINER)
 
 server: clients clients/test.pem
-	poetry run flask --app 'aggrec.app:create_app("../example.toml")' run --debug
+	poetry run aggrec_server --config example.toml --host 127.0.0.1 --port 8080 --debug
 
 client: test-private.pem
 	python3 tools/client.py
