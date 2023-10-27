@@ -208,12 +208,23 @@ def get_aggregate_metadata(
     raise HTTPException(status.HTTP_404_NOT_FOUND)
 
 
-@router.get("/api/v1/aggregates/{aggregate_id}/payload")
+@router.get(
+    "/api/v1/aggregates/{aggregate_id}/payload",
+    responses={
+        200: {
+            "description": "Aggregate payload",
+            "content": {
+                "application/vnd.apache.parquet": {},
+                "application/binary": {},
+            },
+        }
+    },
+)
 async def get_aggregate_payload(
     aggregate_id: str,
     settings: Annotated[Settings, Depends(get_settings)],
     s3_client: Annotated[aiobotocore.client.AioBaseClient, Depends(s3_client)],
-):
+) -> bytes:
     try:
         aggregate_object_id = ObjectId(aggregate_id)
     except bson.errors.InvalidId:
