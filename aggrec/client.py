@@ -123,14 +123,17 @@ def main() -> None:
         include_alg=True,
     )
 
-    print(req.headers)
+    for k, v in req.headers.items():
+        print(f"{k}: {v}")
     print("")
 
     resp = session.send(req)
     resp.raise_for_status()
 
     print(resp)
-    print(resp.headers)
+    for k, v in resp.headers.items():
+        print(f"{k}: {v}")
+    print("")
     print(resp.text)
 
 
