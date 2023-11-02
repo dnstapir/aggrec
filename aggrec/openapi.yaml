@@ -7,7 +7,7 @@ servers:
 
 paths:
 
-  /aggregates/{aggregate_type}:
+  /aggregate/{aggregate_type}:
     post:
       summary: Create aggregate
       operationId: create_aggregate
