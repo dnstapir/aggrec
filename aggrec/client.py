@@ -1,6 +1,7 @@
 import argparse
 import gzip
 import hashlib
+import json
 import logging
 from urllib.parse import urljoin
 
@@ -138,6 +139,7 @@ def main() -> None:
     resp.raise_for_status()
     print(resp)
     print(resp.headers)
+    print(json.loads(resp.content))
 
     resp = session.get(resp.json()["content_location"])
     resp.raise_for_status()
