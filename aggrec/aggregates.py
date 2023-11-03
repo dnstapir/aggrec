@@ -132,6 +132,8 @@ def get_new_aggregate_event_message(
             settings.metadata_base_url,
             f"/api/v1/aggregates/{metadata.id}/payload",
         ),
+        "s3_bucket": metadata.s3_bucket,
+        "s3_object_key": metadata.s3_object_key,
     }
 
 
