@@ -20,6 +20,13 @@ keys: test.pem
 test-private.pem:
 	openssl ecparam -genkey -name prime256v1 -noout -out $@
 
+test-client:
+	openssl rand 1024 > random.bin
+	poetry run aggrec_client \
+		--http-key-id test \
+		--http-key-file test-private.pem \
+		random.bin
+
 clients:
 	mkdir clients
 
