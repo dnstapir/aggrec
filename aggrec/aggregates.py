@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime
 from enum import Enum
 from functools import lru_cache
 from typing import Annotated, Dict
@@ -134,6 +135,21 @@ def get_new_aggregate_event_message(
     }
 
 
+def get_s3_object_key(metadata: AggregateMetadata) -> str:
+    """Get S3 object key from metadata"""
+    dt = metadata.id.generation_time
+    return "/".join(
+        [
+            f"type={metadata.aggregate_type.name.lower()}",
+            f"year={dt.year}",
+            f"month={dt.month}",
+            f"day={dt.day}",
+            f"creator={metadata.creator}",
+            f"id={metadata.id}",
+        ]
+    )
+
+
 @router.post("/api/v1/aggregate/{aggregate_type}")
 async def create_aggregate(
     aggregate_type: AggregateType,
@@ -160,18 +176,6 @@ async def create_aggregate(
     location = f"/api/v1/aggregates/{aggregate_id}"
 
     s3_bucket = settings.s3_bucket
-    s3_object_key = f"type={aggregate_type}/creator={creator}/{aggregate_id}"
-
-    if settings.s3_bucket_create:
-        try:
-            await s3_client.create_bucket(Bucket=s3_bucket)
-        except Exception:
-            pass
-
-    content = await request.body()
-    content_length = len(content)
-
-    await s3_client.put_object(Bucket=s3_bucket, Key=s3_object_key, Body=content)
 
     metadata = AggregateMetadata(
         id=aggregate_id,
@@ -179,11 +183,27 @@ async def create_aggregate(
         creator=creator,
         http_headers=get_http_headers(request),
         content_type=content_type,
-        content_length=content_length,
         s3_bucket=s3_bucket,
-        s3_object_key=s3_object_key,
     )
+
+    content = await request.body()
+
+    metadata.content_length = len(content)
+    metadata.s3_object_key = get_s3_object_key(metadata)
+
+    if settings.s3_bucket_create:
+        try:
+            await s3_client.create_bucket(Bucket=s3_bucket)
+        except Exception:
+            pass
+
+    await s3_client.put_object(
+        Bucket=s3_bucket, Key=metadata.s3_object_key, Body=content
+    )
+    logger.info("Object created: %s", metadata.s3_object_key)
+
     metadata.save()
+    logger.info("Metadata saved: %s", metadata.id)
 
     await mqtt_client.publish(
         settings.mqtt_topic,
