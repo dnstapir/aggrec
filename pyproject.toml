@@ -22,6 +22,7 @@ boto3 = "^1.26.133"
 aiobotocore = "^2.7.0"
 aiomqtt = "^1.2.1"
 setuptools = "^68.2.2"
+jsonformatter = "^0.3.2"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.12.0"
