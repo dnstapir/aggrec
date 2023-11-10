@@ -9,9 +9,44 @@ import uvicorn
 from fastapi import FastAPI
 
 import aggrec.aggregates
+from aggrec.logging import JsonFormatter
 from aggrec.settings import Settings
 
 logger = logging.getLogger(__name__)
+
+
+LOGGING_RECORD_CUSTOM_FORMAT = {
+    "time": "asctime",
+    # "Created": "created",
+    # "RelativeCreated": "relativeCreated",
+    "name": "name",
+    # "Levelno": "levelno",
+    "levelname": "levelname",
+    "process": "process",
+    "thread": "thread",
+    # "threadName": "threadName",
+    # "Pathname": "pathname",
+    # "Filename": "filename",
+    # "Module": "module",
+    # "Lineno": "lineno",
+    # "FuncName": "funcName",
+    "message": "message",
+}
+
+LOGGING_CONFIG_JSON = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "class": "aggrec.logging.JsonFormatter",
+            "format": LOGGING_RECORD_CUSTOM_FORMAT,
+        },
+    },
+    "handlers": {
+        "json": {"class": "logging.StreamHandler", "formatter": "json"},
+    },
+    "root": {"handlers": ["json"], "level": "DEBUG"},
+}
 
 
 def create_settings(config_filename: Optional[str]):
@@ -64,6 +99,9 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    logging_config = LOGGING_CONFIG_JSON
+    logging.config.dictConfig(logging_config)
+
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)
         log_level = "debug"
@@ -73,7 +111,13 @@ def main() -> None:
 
     app = app_factory(args.config)
 
-    uvicorn.run(app, host=args.host, port=args.port, log_level=log_level)
+    uvicorn.run(
+        app,
+        host=args.host,
+        port=args.port,
+        log_config=logging_config,
+        log_level=log_level,
+    )
 
 
 if __name__ == "__main__":
