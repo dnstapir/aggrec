@@ -22,7 +22,9 @@ services:
     volumes:
       - mongo:/data/db
   mosquitto:
-    image: eclipse-mosquitto
+    image: efrecon/mosquitto:latest
     restart: unless-stopped
     ports:
       - 127.0.0.1:1883:1883
+    environment:
+      - MOSQUITTO_ALLOW_ANONYMOUS=true
