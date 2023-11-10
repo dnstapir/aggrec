@@ -9,7 +9,7 @@ import uvicorn
 from fastapi import FastAPI
 
 import aggrec.aggregates
-from aggrec.logging import JsonFormatter
+from aggrec.logging import JsonFormatter  # noqa
 from aggrec.settings import Settings
 
 logger = logging.getLogger(__name__)
