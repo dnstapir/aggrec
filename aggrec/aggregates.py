@@ -55,7 +55,6 @@ class AggregateMetadataResponse(BaseModel):
     content_location: str
     s3_bucket: str
     s3_object_key: str
-    aggregate_interval: Optional[str] = None
     aggregate_interval_start: Optional[datetime] = None
     aggregate_interval_duration: Optional[int] = None
 
@@ -65,7 +64,6 @@ class AggregateMetadataResponse(BaseModel):
         return cls(
             aggregate_id=aggregate_id,
             aggregate_type=metadata.aggregate_type.value,
-            aggregate_interval=metadata.aggregate_interval,
             aggregate_interval_start=metadata.aggregate_interval_start,
             aggregate_interval_duration=metadata.aggregate_interval_duration,
             created=metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -143,13 +141,10 @@ def get_new_aggregate_event_message(
         "s3_object_key": metadata.s3_object_key,
         **(
             {
-                "aggregate_interval": metadata.aggregate_interval,
-                "aggregate_interval_start": metadata.aggregate_interval_start.astimezone(
+                "interval_start": metadata.aggregate_interval_start.astimezone(
                     tz=timezone.utc
-                ).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
-                "aggregate_interval_duration": metadata.aggregate_interval_duration,
+                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "interval_duration": metadata.aggregate_interval_duration,
             }
             if metadata.aggregate_interval
             else {}

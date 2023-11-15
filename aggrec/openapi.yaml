@@ -124,15 +124,15 @@ components:
       description: Aggregate metadata
       type: object
       required:
-        - id
+        - aggregate_id
         - aggregate_type
         - created
         - content_type
         - content_payload_location
       properties:
-        id:
+        aggregate_id:
           $ref: '#/components/schemas/aggregate_id'
-        type:
+        aggregate_type:
           $ref: '#/components/schemas/aggregate_type'
         created:
           type: string
@@ -154,6 +154,13 @@ components:
           type: string
         s3_object_key:
           type: string
+        aggregate_interval_start:
+          type: string
+          format: date-time
+        aggregate_interval_duration:
+          type: integer
+          format: int64
+          minimum: 0
 
     aggregate_id:
       type: string
