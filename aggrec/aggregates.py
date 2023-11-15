@@ -159,7 +159,6 @@ def get_s3_object_key(metadata: AggregateMetadata) -> str:
     dt = metadata.aggregate_interval_start or metadata.id.generation_time
     fields_dict = {
         "type": metadata.aggregate_type.name.lower(),
-        "length": metadata.aggregate_interval_duration,
         "year": f"{dt.year:04}",
         "month": f"{dt.month:02}",
         "day": f"{dt.day:02}",
