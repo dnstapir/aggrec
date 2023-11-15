@@ -6,6 +6,7 @@ import logging
 from urllib.parse import urljoin
 
 import http_sfv
+import pendulum
 import requests
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from http_message_signatures import (
@@ -32,10 +33,18 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Aggregate Sender")
 
+    default_interval = f"{pendulum.now().to_iso8601_string()}/PT1M"
+
     parser.add_argument(
         "aggregate",
         metavar="filename",
         help="Aggregate payload",
+    )
+    parser.add_argument(
+        "--interval",
+        metavar="interval",
+        help="Aggregate interval",
+        default=default_interval,
     )
     parser.add_argument(
         "--tls-cert-file",
@@ -105,6 +114,8 @@ def main() -> None:
             req.headers["Content-Encoding"] = "gzip"
             covered_component_ids.append("content-encoding")
 
+    req.headers["Aggregate-Interval"] = args.interval
+
     req = req.prepare()
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
     req.headers["Content-Digest"] = str(
@@ -142,7 +153,7 @@ def main() -> None:
     resp.raise_for_status()
     print(resp)
     print(resp.headers)
-    print(json.loads(resp.content))
+    print(json.dumps(json.loads(resp.content), indent=4))
 
     resp = session.get(resp.json()["content_location"])
     resp.raise_for_status()

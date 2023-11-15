@@ -52,6 +52,13 @@ paths:
           required: false
           schema:
             type: string
+        - name: Aggregate-Interval
+          description: Aggregate window as an ISO 8601 time interval (start and duration)
+          in: header
+          required: false
+          schema:
+            type: string
+          example: "1984-01-01T12:00:00Z/PT1M"
       requestBody:
         description: Aggregate as Apache Parquet
         content:
