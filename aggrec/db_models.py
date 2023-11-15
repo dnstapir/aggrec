@@ -30,6 +30,5 @@ class AggregateMetadata(Document):
     s3_bucket = StringField()
     s3_object_key = StringField()
 
-    aggregate_interval = StringField()
     aggregate_interval_start = DateTimeField()
     aggregate_interval_duration = IntField()

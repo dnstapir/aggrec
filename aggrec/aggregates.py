@@ -30,6 +30,7 @@ METADATA_HTTP_HEADERS = [
     "Content-Encoding",
     "Signature",
     "Signature-Input",
+    "Aggregate-Interval",
 ]
 
 ALLOWED_AGGREGATE_TYPES = ["histogram", "vector"]
@@ -146,7 +147,8 @@ def get_new_aggregate_event_message(
                 ).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "interval_duration": metadata.aggregate_interval_duration,
             }
-            if metadata.aggregate_interval
+            if metadata.aggregate_interval_start
+            and metadata.aggregate_interval_duration
             else {}
         ),
     }
@@ -212,7 +214,6 @@ async def create_aggregate(
     metadata = AggregateMetadata(
         id=aggregate_id,
         aggregate_type=aggregate_type,
-        aggregate_interval=aggregate_interval,
         aggregate_interval_start=aggregate_interval_start,
         aggregate_interval_duration=aggregate_interval_duration,
         creator=creator,
