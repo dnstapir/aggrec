@@ -47,7 +47,7 @@ class AggregateType(str, Enum):
 class AggregateMetadataResponse(BaseModel):
     aggregate_id: str
     aggregate_type: AggregateType
-    created: str
+    created: Optional[datetime]
     creator: str
     headers: dict
     content_type: str
