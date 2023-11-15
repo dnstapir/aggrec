@@ -160,11 +160,11 @@ def get_s3_object_key(metadata: AggregateMetadata) -> str:
     fields_dict = {
         "type": metadata.aggregate_type.name.lower(),
         "length": metadata.aggregate_interval_duration,
-        "year": dt.year,
-        "month": dt.month,
-        "day": dt.day,
-        "hour": dt.minute,
-        "minute": dt.second,
+        "year": f"{dt.year:04}",
+        "month": f"{dt.month:02}",
+        "day": f"{dt.day:02}",
+        "hour": f"{dt.minute:02}",
+        "minute": f"{dt.second:02}",
         "creator": metadata.creator,
         "id": metadata.id,
     }
