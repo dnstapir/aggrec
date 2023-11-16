@@ -16,7 +16,12 @@ from http_message_signatures import (
 )
 
 DEFAULT_CONTENT_TYPE = "application/vnd.apache.parquet"
-DEFAULT_COVERED_COMPONENT_IDS = ["content-type", "content-digest", "content-length", "aggregate-interval"]
+DEFAULT_COVERED_COMPONENT_IDS = [
+    "content-type",
+    "content-digest",
+    "content-length",
+    "aggregate-interval",
+]
 
 
 class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
