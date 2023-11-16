@@ -185,6 +185,27 @@ def get_s3_object_key(metadata: AggregateMetadata) -> str:
     return "/".join(fields_list)
 
 
+def get_s3_object_metadata(metadata: AggregateMetadata) -> dict:
+    """Get S3 object metadata from metadata"""
+    return {
+        "aggregate-id": str(metadata.id),
+        "aggregate-type": metadata.aggregate_type.value,
+        "created": metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "creator": str(metadata.creator),
+        **(
+            {
+                "interval-start": metadata.aggregate_interval_start.astimezone(
+                    tz=timezone.utc
+                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "interval-duration": str(metadata.aggregate_interval_duration),
+            }
+            if metadata.aggregate_interval_start
+            and metadata.aggregate_interval_duration
+            else {}
+        ),
+    }
+
+
 @router.post("/api/v1/aggregate/{aggregate_type}")
 async def create_aggregate(
     aggregate_type: AggregateType,
@@ -248,8 +269,15 @@ async def create_aggregate(
         except Exception:
             pass
 
+    s3_object_metadata = get_s3_object_metadata(metadata)
+    logger.debug("S3 object metadata: %s", s3_object_metadata)
+
     await s3_client.put_object(
-        Bucket=s3_bucket, Key=metadata.s3_object_key, Body=content
+        Bucket=s3_bucket,
+        Key=metadata.s3_object_key,
+        Metadata=s3_object_metadata,
+        ContentType=content_type,
+        Body=content,
     )
     logger.info("Object created: %s", metadata.s3_object_key)
 
