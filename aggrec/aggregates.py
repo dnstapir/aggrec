@@ -161,6 +161,7 @@ def get_new_aggregate_event_message(
 def get_s3_object_key(metadata: AggregateMetadata) -> str:
     """Get S3 object key from metadata"""
     dt = metadata.aggregate_interval_start or metadata.id.generation_time
+    dt = dt.astimezone(tz=timezone.utc)
     fields_dict = {
         "type": metadata.aggregate_type.name.lower(),
         "year": f"{dt.year:04}",
