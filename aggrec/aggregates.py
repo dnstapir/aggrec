@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timezone
 from enum import Enum
 from functools import lru_cache
-from typing import Annotated, Dict, Optional
+from typing import Annotated, Dict
 from urllib.parse import urljoin
 
 import aiobotocore.session
