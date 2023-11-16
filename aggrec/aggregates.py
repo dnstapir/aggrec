@@ -14,7 +14,7 @@ import pendulum
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .db_models import AggregateMetadata
 from .helpers import RequestVerifier, pendulum_as_datetime, rfc_3339_datetime_now
@@ -46,18 +46,22 @@ class AggregateType(str, Enum):
 
 
 class AggregateMetadataResponse(BaseModel):
-    aggregate_id: str
-    aggregate_type: AggregateType
-    created: str
-    creator: str
-    headers: dict
-    content_type: str
-    content_length: int
-    content_location: str
-    s3_bucket: str
-    s3_object_key: str
-    aggregate_interval_start: Optional[datetime] = None
-    aggregate_interval_duration: Optional[int] = None
+    aggregate_id: str = Field(title="Aggregate identifier")
+    aggregate_type: AggregateType = Field(title="Aggregate type")
+    created: datetime = Field(title="Aggregate creation timestamp")
+    creator: str = Field(title="Aggregate creator")
+    headers: dict = Field(title="Dictionary of relevant HTTP headers")
+    content_type: str = Field(title="Content MIME type")
+    content_length: int = Field(title="Content length")
+    content_location: str = Field(title="Content local (URL)")
+    s3_bucket: str = Field(title="S3 Bucket Name")
+    s3_object_key: str = Field(title="S3 Object Key")
+    aggregate_interval_start: datetime | None = Field(
+        default=None, title="Aggregate interval start"
+    )
+    aggregate_interval_duration: int | None = Field(
+        default=None, title="Aggregate interval duration (seconds)"
+    )
 
     @classmethod
     def from_db_model(cls, metadata: AggregateMetadata, settings: Settings):
@@ -67,7 +71,7 @@ class AggregateMetadataResponse(BaseModel):
             aggregate_type=metadata.aggregate_type.value,
             aggregate_interval_start=metadata.aggregate_interval_start,
             aggregate_interval_duration=metadata.aggregate_interval_duration,
-            created=metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            created=metadata.id.generation_time,
             creator=str(metadata.creator),
             headers=metadata.http_headers,
             content_type=metadata.content_type,
