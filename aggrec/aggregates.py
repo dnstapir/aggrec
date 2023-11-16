@@ -264,6 +264,7 @@ async def create_aggregate(
         Bucket=s3_bucket,
         Key=metadata.s3_object_key,
         Metadata=s3_object_metadata,
+        ContentType=content_type,
         Body=content,
     )
     logger.info("Object created: %s", metadata.s3_object_key)
