@@ -1,6 +1,13 @@
 from enum import Enum
 
-from mongoengine import DictField, Document, EnumField, IntField, StringField
+from mongoengine import (
+    DateTimeField,
+    DictField,
+    Document,
+    EnumField,
+    IntField,
+    StringField,
+)
 
 
 class AggregateType(Enum):
@@ -22,3 +29,6 @@ class AggregateMetadata(Document):
 
     s3_bucket = StringField()
     s3_object_key = StringField()
+
+    aggregate_interval_start = DateTimeField()
+    aggregate_interval_duration = IntField()

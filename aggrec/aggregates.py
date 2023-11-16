@@ -1,21 +1,24 @@
 import json
 import logging
+import re
+from datetime import datetime, timezone
 from enum import Enum
 from functools import lru_cache
-from typing import Annotated, Dict
+from typing import Annotated, Dict, List
 from urllib.parse import urljoin
 
 import aiobotocore.session
 import aiomqtt
 import boto3
 import bson
+import pendulum
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .db_models import AggregateMetadata
-from .helpers import RequestVerifier, rfc_3339_datetime_now
+from .helpers import RequestVerifier, pendulum_as_datetime, rfc_3339_datetime_now
 from .settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -43,16 +46,22 @@ class AggregateType(str, Enum):
 
 
 class AggregateMetadataResponse(BaseModel):
-    aggregate_id: str
-    aggregate_type: AggregateType
-    created: str
-    creator: str
-    headers: dict
-    content_type: str
-    content_length: int
-    content_location: str
-    s3_bucket: str
-    s3_object_key: str
+    aggregate_id: str = Field(title="Aggregate identifier")
+    aggregate_type: AggregateType = Field(title="Aggregate type")
+    created: datetime = Field(title="Aggregate creation timestamp")
+    creator: str = Field(title="Aggregate creator")
+    headers: dict = Field(title="Dictionary of relevant HTTP headers")
+    content_type: str = Field(title="Content MIME type")
+    content_length: int = Field(title="Content length")
+    content_location: str = Field(title="Content local (URL)")
+    s3_bucket: str = Field(title="S3 Bucket Name")
+    s3_object_key: str = Field(title="S3 Object Key")
+    aggregate_interval_start: datetime | None = Field(
+        default=None, title="Aggregate interval start"
+    )
+    aggregate_interval_duration: int | None = Field(
+        default=None, title="Aggregate interval duration (seconds)"
+    )
 
     @classmethod
     def from_db_model(cls, metadata: AggregateMetadata, settings: Settings):
@@ -60,7 +69,9 @@ class AggregateMetadataResponse(BaseModel):
         return cls(
             aggregate_id=aggregate_id,
             aggregate_type=metadata.aggregate_type.value,
-            created=metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            aggregate_interval_start=metadata.aggregate_interval_start,
+            aggregate_interval_duration=metadata.aggregate_interval_duration,
+            created=metadata.id.generation_time,
             creator=str(metadata.creator),
             headers=metadata.http_headers,
             content_type=metadata.content_type,
@@ -102,10 +113,19 @@ async def mqtt_client(settings: Annotated[Settings, Depends(get_settings)]):
         yield client
 
 
-def get_http_headers(request: Request) -> Dict[str, str]:
+def get_http_headers(
+    request: Request, covered_components_headers: List[str]
+) -> Dict[str, str]:
     """Get dictionary of relevant metadata HTTP headers"""
+
+    relevant_headers = set([header.lower() for header in METADATA_HTTP_HEADERS])
+
+    for header in covered_components_headers:
+        if match := re.match(r"^\"([^@].+)\"$", header):
+            relevant_headers.add(match.group(1))
+
     res = {}
-    for header in METADATA_HTTP_HEADERS:
+    for header in relevant_headers:
         if value := request.headers.get(header):
             res[header] = value
     return res
@@ -133,22 +153,36 @@ def get_new_aggregate_event_message(
         ),
         "s3_bucket": metadata.s3_bucket,
         "s3_object_key": metadata.s3_object_key,
+        **(
+            {
+                "interval_start": metadata.aggregate_interval_start.astimezone(
+                    tz=timezone.utc
+                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "interval_duration": metadata.aggregate_interval_duration,
+            }
+            if metadata.aggregate_interval_start
+            and metadata.aggregate_interval_duration
+            else {}
+        ),
     }
 
 
 def get_s3_object_key(metadata: AggregateMetadata) -> str:
     """Get S3 object key from metadata"""
-    dt = metadata.id.generation_time
-    return "/".join(
-        [
-            f"type={metadata.aggregate_type.name.lower()}",
-            f"year={dt.year}",
-            f"month={dt.month}",
-            f"day={dt.day}",
-            f"creator={metadata.creator}",
-            f"id={metadata.id}",
-        ]
-    )
+    dt = metadata.aggregate_interval_start or metadata.id.generation_time
+    dt = dt.astimezone(tz=timezone.utc)
+    fields_dict = {
+        "type": metadata.aggregate_type.name.lower(),
+        "year": f"{dt.year:04}",
+        "month": f"{dt.month:02}",
+        "day": f"{dt.day:02}",
+        "hour": f"{dt.hour:02}",
+        "minute": f"{dt.minute:02}",
+        "creator": metadata.creator,
+        "id": metadata.id,
+    }
+    fields_list = [f"{k}={v}" for k, v in fields_dict.items() if v is not None]
+    return "/".join(fields_list)
 
 
 @router.post("/api/v1/aggregate/{aggregate_type}")
@@ -170,19 +204,35 @@ async def create_aggregate(
 
     res = await http_request_verifier.verify(request)
 
-    creator = res.get("keyid")
+    creator = res.parameters.get("keyid")
     logger.info("Create aggregate request by keyid=%s", creator)
+
+    http_headers = get_http_headers(request, res.covered_components.keys())
 
     aggregate_id = ObjectId()
     location = f"/api/v1/aggregates/{aggregate_id}"
 
     s3_bucket = settings.s3_bucket
 
+    if aggregate_interval := request.headers.get("Aggregate-Interval"):
+        period = pendulum.parse(aggregate_interval)
+        if not isinstance(period, pendulum.Period):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST, "Invalid Aggregate-Interval"
+            )
+        aggregate_interval_start = pendulum_as_datetime(period.start)
+        aggregate_interval_duration = period.start.diff(period.end).in_seconds()
+    else:
+        aggregate_interval_start = None
+        aggregate_interval_duration = None
+
     metadata = AggregateMetadata(
         id=aggregate_id,
         aggregate_type=aggregate_type,
+        aggregate_interval_start=aggregate_interval_start,
+        aggregate_interval_duration=aggregate_interval_duration,
         creator=creator,
-        http_headers=get_http_headers(request),
+        http_headers=http_headers,
         content_type=content_type,
         s3_bucket=s3_bucket,
     )

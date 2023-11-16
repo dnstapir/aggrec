@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aggrec"
-version = "0.4.0"
+version = "0.5.0"
 description = "DNS TAPIR Aggregate Receiver"
 authors = ["Jakob Schlyter <jakob@kirei.se>"]
 readme = "README.md"
@@ -23,6 +23,7 @@ aiobotocore = "^2.7.0"
 aiomqtt = "^1.2.1"
 setuptools = "^68.2.2"
 jsonformatter = "^0.3.2"
+pendulum = "^2.1.2"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.12.0"

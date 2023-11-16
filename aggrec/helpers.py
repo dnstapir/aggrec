@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timezone
 
 import http_sfv
+import pendulum
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from fastapi import HTTPException, Request, status
 from http_message_signatures import (
@@ -65,7 +66,7 @@ class RequestVerifier:
             raise UnsupportedContentDigestAlgorithm
         raise ContentDigestMissing
 
-    async def verify(self, request: Request) -> dict:
+    async def verify(self, request: Request) -> VerifyResult:
         """Verify request and return signer"""
         verifier = HTTPMessageVerifier(
             signature_algorithm=self.algorithm,
@@ -89,7 +90,7 @@ class RequestVerifier:
             try:
                 await self.verify_content_digest(result, request)
                 self.logger.debug("Content-Digest verified")
-                return result.parameters
+                return result
             except InvalidContentDigest:
                 raise HTTPException(
                     status.HTTP_401_UNAUTHORIZED, "Content-Digest verification failed"
@@ -107,3 +108,16 @@ class RequestVerifier:
 def rfc_3339_datetime_now() -> str:
     """Return current time(UTC) as ISO 8601 timestamp"""
     return str(datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+
+def pendulum_as_datetime(dt: pendulum.DateTime) -> datetime:
+    return datetime(
+        year=dt.year,
+        month=dt.month,
+        day=dt.day,
+        hour=dt.hour,
+        minute=dt.minute,
+        second=dt.second,
+        microsecond=dt.microsecond,
+        tzinfo=dt.tzinfo,
+    )

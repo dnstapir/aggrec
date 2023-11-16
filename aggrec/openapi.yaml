@@ -52,6 +52,13 @@ paths:
           required: false
           schema:
             type: string
+        - name: Aggregate-Interval
+          description: Aggregate window as an ISO 8601 time interval (start and duration)
+          in: header
+          required: false
+          schema:
+            type: string
+          example: "1984-01-01T12:00:00Z/PT1M"
       requestBody:
         description: Aggregate as Apache Parquet
         content:
@@ -117,15 +124,15 @@ components:
       description: Aggregate metadata
       type: object
       required:
-        - id
+        - aggregate_id
         - aggregate_type
         - created
         - content_type
         - content_payload_location
       properties:
-        id:
+        aggregate_id:
           $ref: '#/components/schemas/aggregate_id'
-        type:
+        aggregate_type:
           $ref: '#/components/schemas/aggregate_type'
         created:
           type: string
@@ -147,6 +154,13 @@ components:
           type: string
         s3_object_key:
           type: string
+        aggregate_interval_start:
+          type: string
+          format: date-time
+        aggregate_interval_duration:
+          type: integer
+          format: int64
+          minimum: 0
 
     aggregate_id:
       type: string
