@@ -1,9 +1,10 @@
 import json
 import logging
+import re
 from datetime import datetime, timezone
 from enum import Enum
 from functools import lru_cache
-from typing import Annotated, Dict
+from typing import Annotated, Dict, List
 from urllib.parse import urljoin
 
 import aiobotocore.session
@@ -30,7 +31,6 @@ METADATA_HTTP_HEADERS = [
     "Content-Encoding",
     "Signature",
     "Signature-Input",
-    "Aggregate-Interval",
 ]
 
 ALLOWED_AGGREGATE_TYPES = ["histogram", "vector"]
@@ -113,10 +113,19 @@ async def mqtt_client(settings: Annotated[Settings, Depends(get_settings)]):
         yield client
 
 
-def get_http_headers(request: Request) -> Dict[str, str]:
+def get_http_headers(
+    request: Request, covered_components_headers: List[str]
+) -> Dict[str, str]:
     """Get dictionary of relevant metadata HTTP headers"""
+
+    relevant_headers = set([header.lower() for header in METADATA_HTTP_HEADERS])
+
+    for header in covered_components_headers:
+        if match := re.match(r"^\"([^@].+)\"$", header):
+            relevant_headers.add(match.group(1))
+
     res = {}
-    for header in METADATA_HTTP_HEADERS:
+    for header in relevant_headers:
         if value := request.headers.get(header):
             res[header] = value
     return res
@@ -195,8 +204,10 @@ async def create_aggregate(
 
     res = await http_request_verifier.verify(request)
 
-    creator = res.get("keyid")
+    creator = res.parameters.get("keyid")
     logger.info("Create aggregate request by keyid=%s", creator)
+
+    http_headers = get_http_headers(request, res.covered_components.keys())
 
     aggregate_id = ObjectId()
     location = f"/api/v1/aggregates/{aggregate_id}"
@@ -221,7 +232,7 @@ async def create_aggregate(
         aggregate_interval_start=aggregate_interval_start,
         aggregate_interval_duration=aggregate_interval_duration,
         creator=creator,
-        http_headers=get_http_headers(request),
+        http_headers=http_headers,
         content_type=content_type,
         s3_bucket=s3_bucket,
     )

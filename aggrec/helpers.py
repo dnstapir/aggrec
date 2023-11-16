@@ -66,7 +66,7 @@ class RequestVerifier:
             raise UnsupportedContentDigestAlgorithm
         raise ContentDigestMissing
 
-    async def verify(self, request: Request) -> dict:
+    async def verify(self, request: Request) -> VerifyResult:
         """Verify request and return signer"""
         verifier = HTTPMessageVerifier(
             signature_algorithm=self.algorithm,
@@ -90,7 +90,7 @@ class RequestVerifier:
             try:
                 await self.verify_content_digest(result, request)
                 self.logger.debug("Content-Digest verified")
-                return result.parameters
+                return result
             except InvalidContentDigest:
                 raise HTTPException(
                     status.HTTP_401_UNAUTHORIZED, "Content-Digest verification failed"
