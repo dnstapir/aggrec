@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 METADATA_HTTP_HEADERS = [
+    "User-Agent",
     "Content-Length",
     "Content-Type",
     "Content-Digest",
