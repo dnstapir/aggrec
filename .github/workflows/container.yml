@@ -11,13 +11,15 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: dnstapir/aggrec
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   container:
     name: Build and push container
     runs-on: ubuntu-latest
     permissions:
+      actions: write
+      contents: read
       packages: write
     steps:
       - name: Set up QEMU
