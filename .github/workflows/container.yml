@@ -43,5 +43,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/dnstapir/aggrec:latest
           tags: ${{ steps.meta.outputs.tags }}
