@@ -1,18 +1,25 @@
 CONTAINER=		ghcr.io/dnstapir/aggregate-receiver:latest
 CONTAINER_BASE=		aggrec:latest
+BUILDINFO=		aggrec/buildinfo.py
 
-all:
+DEPENDS=		$(BUILDINFO)
 
-container:
+
+all: $(DEPENDS)
+
+$(BUILDINFO):
+	printf "__commit__ = \"`git rev-parse HEAD`\"\n__timestamp__ = \"`date +'%Y-%m-%d %H:%M:%S %Z'`\"\n" > $(BUILDINFO)	
+
+container: $(DEPENDS)
 	docker build -t $(CONTAINER) -t $(CONTAINER_BASE) .
 
 push-container:
 	docker push $(CONTAINER)
 
-server: clients clients/test.pem
+server: $(DEPENDS) clients clients/test.pem
 	poetry run aggrec_server --config example.toml --host 127.0.0.1 --port 8080 --debug
 
-client: test-private.pem
+client: $(DEPENDS) test-private.pem
 	python3 tools/client.py
 
 keys: test.pem
@@ -33,7 +40,7 @@ clients:
 clients/test.pem: test-private.pem
 	openssl ec -in $< -pubout -out $@
 	
-test:
+test: $(DEPENDS)
 	poetry run pytest --isort --black --pylama
 
 lint:
@@ -46,6 +53,7 @@ reformat:
 clean:
 	rm -f *.pem
 	rm -fr clients
+	rm -f $(BUILDINFO)
 
 realclean: clean
 	poetry env remove --all

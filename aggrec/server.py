@@ -9,11 +9,11 @@ import uvicorn
 from fastapi import FastAPI
 
 import aggrec.aggregates
+from aggrec import __verbose_version__
 from aggrec.logging import JsonFormatter  # noqa
 from aggrec.settings import Settings
 
 logger = logging.getLogger(__name__)
-
 
 LOGGING_RECORD_CUSTOM_FORMAT = {
     "time": "asctime",
@@ -96,8 +96,13 @@ def main() -> None:
     parser.add_argument("--host", help="Host address to bind to", default="0.0.0.0")
     parser.add_argument("--port", help="Port to listen on", type=int, default=8080)
     parser.add_argument("--debug", action="store_true", help="Enable debugging")
+    parser.add_argument("--version", action="store_true", help="Show version")
 
     args = parser.parse_args()
+
+    if args.version:
+        print(f"Aggregate Receiver Server version {__verbose_version__}")
+        return
 
     logging_config = LOGGING_CONFIG_JSON
     logging.config.dictConfig(logging_config)
@@ -111,12 +116,15 @@ def main() -> None:
 
     app = app_factory(args.config)
 
+    logger.info("Starting Aggregate Receiver version %s", __verbose_version__)
+
     uvicorn.run(
         app,
         host=args.host,
         port=args.port,
         log_config=logging_config,
         log_level=log_level,
+        headers=[("server", f"dnstapir-aggrec/{__verbose_version__}")],
     )
 
 
