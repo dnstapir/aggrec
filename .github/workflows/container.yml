@@ -17,6 +17,8 @@ jobs:
   container:
     name: Build and push container
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     steps:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
