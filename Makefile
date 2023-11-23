@@ -11,7 +11,7 @@ $(BUILDINFO):
 	printf "__commit__ = \"`git rev-parse HEAD`\"\n__timestamp__ = \"`date +'%Y-%m-%d %H:%M:%S %Z'`\"\n" > $(BUILDINFO)	
 
 container: $(DEPENDS)
-	docker build -t $(CONTAINER) -t $(CONTAINER_BASE) .
+	docker buildx build -t $(CONTAINER) -t $(CONTAINER_BASE) .
 
 push-container:
 	docker push $(CONTAINER)
