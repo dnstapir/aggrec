@@ -1,4 +1,4 @@
-CONTAINER=		ghcr.io/dnstapir/aggregate-receiver:latest
+CONTAINER=		ghcr.io/dnstapir/aggrec:latest
 CONTAINER_BASE=		aggrec:latest
 BUILDINFO=		aggrec/buildinfo.py
 
