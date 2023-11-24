@@ -156,10 +156,12 @@ def get_new_aggregate_event_message(
         "s3_object_key": metadata.s3_object_key,
         **(
             {
-                "interval_start": metadata.aggregate_interval_start.astimezone(
+                "aggregate_interval_start": metadata.aggregate_interval_start.astimezone(
                     tz=timezone.utc
-                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "interval_duration": metadata.aggregate_interval_duration,
+                ).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+                "aggregate_interval_duration": metadata.aggregate_interval_duration,
             }
             if metadata.aggregate_interval_start
             and metadata.aggregate_interval_duration
