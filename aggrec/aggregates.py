@@ -181,6 +181,7 @@ def get_s3_object_key(metadata: AggregateMetadata) -> str:
         "day": f"{dt.day:02}",
         "hour": f"{dt.hour:02}",
         "minute": f"{dt.minute:02}",
+        "second": f"{dt.second:02}",
         "creator": metadata.creator,
         "id": metadata.id,
     }
