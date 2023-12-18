@@ -241,7 +241,7 @@ async def create_aggregate(
 
     if aggregate_interval := request.headers.get("Aggregate-Interval"):
         period = pendulum.parse(aggregate_interval)
-        if not isinstance(period, pendulum.Period):
+        if not isinstance(period, pendulum.Interval):
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "Invalid Aggregate-Interval"
             )
