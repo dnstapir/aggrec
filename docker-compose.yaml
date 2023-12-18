@@ -24,6 +24,7 @@ services:
   mosquitto:
     image: efrecon/mosquitto:latest
     restart: unless-stopped
+    platform: linux/amd64
     ports:
       - 127.0.0.1:1883:1883
     environment:
