@@ -25,6 +25,10 @@ Client are assumed to be authenticated using mTLS and all submitted data must be
     MQTT_TOPIC = "aggregates"
 
 
+## API
+
+Documentation at `/docs` and `/redoc`.
+
 ## References
 
 - [DNS TAPIR Aggregate Receiver API v1](aggrec/openapi.yaml)
