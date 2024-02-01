@@ -101,7 +101,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.version:
-        print(f"Aggregate Receiver Server version {__verbose_version__}")
+        print(f"Aggregate Receiver version {__verbose_version__}")
         return
 
     logging_config = LOGGING_CONFIG_JSON
