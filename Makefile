@@ -8,7 +8,7 @@ DEPENDS=		$(BUILDINFO)
 all: $(DEPENDS)
 
 $(BUILDINFO):
-	printf "__commit__ = \"`git rev-parse HEAD`\"\n__timestamp__ = \"`date +'%Y-%m-%d %H:%M:%S %Z'`\"\n" > $(BUILDINFO)	
+	printf "__commit__ = \"`git rev-parse HEAD`\"\n__timestamp__ = \"`date +'%Y-%m-%d %H:%M:%S %Z'`\"\n" > $(BUILDINFO)
 
 container: $(DEPENDS)
 	docker buildx build -t $(CONTAINER) -t $(CONTAINER_BASE) .
@@ -18,9 +18,6 @@ push-container:
 
 server: $(DEPENDS) clients clients/test.pem
 	poetry run aggrec_server --config example.toml --host 127.0.0.1 --port 8080 --debug
-
-client: $(DEPENDS) test-private.pem
-	python3 tools/client.py
 
 keys: test.pem
 
@@ -39,7 +36,7 @@ clients:
 
 clients/test.pem: test-private.pem
 	openssl ec -in $< -pubout -out $@
-	
+
 test: $(DEPENDS)
 	poetry run pytest --isort --black --pylama
 
@@ -49,7 +46,7 @@ lint:
 reformat:
 	poetry run isort .
 	poetry run black .
-	
+
 clean:
 	rm -f *.pem
 	rm -fr clients
