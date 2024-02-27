@@ -3,7 +3,6 @@ import logging
 import re
 from datetime import datetime, timezone
 from enum import Enum
-from functools import lru_cache
 from typing import Annotated, Dict, List
 from urllib.parse import urljoin
 
