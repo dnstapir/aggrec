@@ -13,12 +13,14 @@ import boto3
 import bson
 import pendulum
 from bson.objectid import ObjectId
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
+from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from aggrec.helpers import RequestVerifier
+
 from .db_models import AggregateMetadata
-from .helpers import RequestVerifier, pendulum_as_datetime, rfc_3339_datetime_now
+from .helpers import pendulum_as_datetime, rfc_3339_datetime_now
 from .settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -87,34 +89,6 @@ class AggregateMetadataResponse(BaseModel):
         )
 
 
-@lru_cache
-def get_settings():
-    return Settings()
-
-
-def http_request_verifier(settings: Annotated[Settings, Depends(get_settings)]):
-    return RequestVerifier(client_database=settings.clients_database)
-
-
-async def s3_client(settings: Annotated[Settings, Depends(get_settings)]):
-    logger.debug("Returning settings")
-    session = aiobotocore.session.AioSession()
-    async with session.create_client(
-        "s3",
-        endpoint_url=settings.s3_endpoint_url,
-        aws_access_key_id=settings.s3_access_key_id,
-        aws_secret_access_key=settings.s3_secret_access_key,
-        aws_session_token=None,
-        config=boto3.session.Config(signature_version="s3v4"),
-    ) as client:
-        yield client
-
-
-async def mqtt_client(settings: Annotated[Settings, Depends(get_settings)]):
-    async with aiomqtt.Client(settings.mqtt_broker) as client:
-        yield client
-
-
 def get_http_headers(
     request: Request, covered_components_headers: List[str]
 ) -> Dict[str, str]:
@@ -131,6 +105,17 @@ def get_http_headers(
         if value := request.headers.get(header):
             res[header] = value
     return res
+
+
+def get_s3_client(settings: Settings):
+    return aiobotocore.session.AioSession().create_client(
+        "s3",
+        endpoint_url=settings.s3_endpoint_url,
+        aws_access_key_id=settings.s3_access_key_id,
+        aws_secret_access_key=settings.s3_secret_access_key,
+        aws_session_token=None,
+        config=boto3.session.Config(signature_version="s3v4"),
+    )
 
 
 def get_new_aggregate_event_message(
@@ -238,11 +223,10 @@ async def create_aggregate(
         ),
     ],
     request: Request,
-    settings: Annotated[Settings, Depends(get_settings)],
-    s3_client: Annotated[aiobotocore.client.AioBaseClient, Depends(s3_client)],
-    mqtt_client: Annotated[aiomqtt.Client, Depends(mqtt_client)],
-    http_request_verifier: Annotated[RequestVerifier, Depends(http_request_verifier)],
 ):
+    http_request_verifier = RequestVerifier(
+        client_database=request.app.settings.clients_database
+    )
     res = await http_request_verifier.verify(request)
 
     creator = res.parameters.get("keyid")
@@ -253,7 +237,7 @@ async def create_aggregate(
     aggregate_id = ObjectId()
     location = f"/api/v1/aggregates/{aggregate_id}"
 
-    s3_bucket = settings.s3_bucket
+    s3_bucket = request.app.settings.s3_bucket
 
     if aggregate_interval:
         period = pendulum.parse(aggregate_interval)
@@ -283,31 +267,33 @@ async def create_aggregate(
     metadata.content_length = len(content)
     metadata.s3_object_key = get_s3_object_key(metadata)
 
-    if settings.s3_bucket_create:
-        try:
-            await s3_client.create_bucket(Bucket=s3_bucket)
-        except Exception:
-            pass
-
     s3_object_metadata = get_s3_object_metadata(metadata)
     logger.debug("S3 object metadata: %s", s3_object_metadata)
 
-    await s3_client.put_object(
-        Bucket=s3_bucket,
-        Key=metadata.s3_object_key,
-        Metadata=s3_object_metadata,
-        ContentType=content_type,
-        Body=content,
-    )
-    logger.info("Object created: %s", metadata.s3_object_key)
+    async with get_s3_client(request.app.settings) as s3_client:
+        if request.app.settings.s3_bucket_create:
+            try:
+                await s3_client.create_bucket(Bucket=s3_bucket)
+            except Exception:
+                pass
+
+        await s3_client.put_object(
+            Bucket=s3_bucket,
+            Key=metadata.s3_object_key,
+            Metadata=s3_object_metadata,
+            ContentType=content_type,
+            Body=content,
+        )
+        logger.info("Object created: %s", metadata.s3_object_key)
 
     metadata.save()
     logger.info("Metadata saved: %s", metadata.id)
 
-    await mqtt_client.publish(
-        settings.mqtt_topic,
-        json.dumps(get_new_aggregate_event_message(metadata, settings)),
-    )
+    async with aiomqtt.Client(request.app.settings.mqtt_broker) as mqtt_client:
+        await mqtt_client.publish(
+            request.app.settings.mqtt_topic,
+            json.dumps(get_new_aggregate_event_message(metadata, request.app.settings)),
+        )
 
     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": location})
 
@@ -320,7 +306,8 @@ async def create_aggregate(
     },
 )
 def get_aggregate_metadata(
-    aggregate_id: str, settings: Annotated[Settings, Depends(get_settings)]
+    aggregate_id: str,
+    request: Request,
 ) -> AggregateMetadataResponse:
     try:
         aggregate_object_id = ObjectId(aggregate_id)
@@ -328,7 +315,7 @@ def get_aggregate_metadata(
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
-        return AggregateMetadataResponse.from_db_model(metadata, settings)
+        return AggregateMetadataResponse.from_db_model(metadata, request.app.settings)
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
 
@@ -354,8 +341,7 @@ def get_aggregate_metadata(
 )
 async def get_aggregate_payload(
     aggregate_id: str,
-    settings: Annotated[Settings, Depends(get_settings)],
-    s3_client: Annotated[aiobotocore.client.AioBaseClient, Depends(s3_client)],
+    request: Request,
 ) -> bytes:
     try:
         aggregate_object_id = ObjectId(aggregate_id)
@@ -363,9 +349,11 @@ async def get_aggregate_payload(
         raise HTTPException(status.HTTP_404_NOT_FOUND)
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
-        s3_obj = await s3_client.get_object(
-            Bucket=metadata.s3_bucket, Key=metadata.s3_object_key
-        )
+        async with get_s3_client(request.app.settings) as s3_client:
+            s3_obj = await s3_client.get_object(
+                Bucket=metadata.s3_bucket, Key=metadata.s3_object_key
+            )
+
         metadata_location = f"/api/v1/aggregates/{aggregate_id}"
 
         return StreamingResponse(
