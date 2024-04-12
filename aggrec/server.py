@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-from functools import lru_cache
 from typing import Optional
 
 import mongoengine
@@ -49,42 +48,39 @@ LOGGING_CONFIG_JSON = {
 }
 
 
-def create_settings(config_filename: Optional[str]):
-    config_filename = config_filename or os.environ.get("AGGREC_CONFIG")
-    if config_filename:
-        logger.info("Reading configuration from %s", config_filename)
-        return Settings.from_file(config_filename)
-    else:
-        return Settings()
+class AggrecServer(FastAPI):
+    def __init__(self):
+        super().__init__()
 
+    @staticmethod
+    def create_settings(config_filename: Optional[str]):
+        config_filename = config_filename or os.environ.get("AGGREC_CONFIG")
+        if config_filename:
+            logger.info("Reading configuration from %s", config_filename)
+            return Settings.from_file(config_filename)
+        else:
+            return Settings()
 
-def connect_mongodb(settings: Settings):
-    if mongodb_host := settings.mongodb_host:
-        params = {"host": mongodb_host}
-        if "host" in params and params["host"].startswith("mongomock://"):
-            import mongomock
+    @staticmethod
+    def connect_mongodb(settings: Settings):
+        if mongodb_host := settings.mongodb_host:
+            params = {"host": mongodb_host}
+            if "host" in params and params["host"].startswith("mongomock://"):
+                import mongomock
 
-            params["host"] = params["host"].replace("mongomock://", "mongodb://")
-            params["mongo_client_class"] = mongomock.MongoClient
-        logger.info("Mongoengine connect %s", params)
-        mongoengine.connect(**params, tz_aware=True)
+                params["host"] = params["host"].replace("mongomock://", "mongodb://")
+                params["mongo_client_class"] = mongomock.MongoClient
+            logger.info("Mongoengine connect %s", params)
+            mongoengine.connect(**params, tz_aware=True)
 
-
-def app_factory(config_filename: Optional[str]):
-    app = FastAPI()
-    settings = create_settings(config_filename)
-
-    @lru_cache
-    def get_settings_override():
-        logger.debug("Returning settings")
-        return settings
-
-    app.include_router(aggrec.aggregates.router)
-    app.dependency_overrides[aggrec.aggregates.get_settings] = get_settings_override
-
-    connect_mongodb(settings)
-
-    return app
+    @classmethod
+    def factory(cls, config_filename: Optional[str]):
+        logger.info("Starting Aggregate Receiver version %s", __verbose_version__)
+        app = cls()
+        app.settings = app.create_settings(config_filename)
+        app.include_router(aggrec.aggregates.router)
+        app.connect_mongodb(app.settings)
+        return app
 
 
 def main() -> None:
@@ -114,9 +110,7 @@ def main() -> None:
         logging.basicConfig(level=logging.INFO)
         log_level = "info"
 
-    app = app_factory(args.config)
-
-    logger.info("Starting Aggregate Receiver version %s", __verbose_version__)
+    app = AggrecServer.factory(args.config)
 
     uvicorn.run(
         app,
