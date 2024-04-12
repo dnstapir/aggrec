@@ -220,6 +220,18 @@ async def create_aggregate(
             example="1984-01-01T12:00:00Z/PT1M",
         ),
     ],
+    content_digest: Annotated[
+        str,
+        Header(description="RFC 9530 Digest"),
+    ],
+    signature: Annotated[
+        str,
+        Header(description="RFC 9421 Signature"),
+    ],
+    signature_input: Annotated[
+        str,
+        Header(description="RFC 9421 Signature Input"),
+    ],
     request: Request,
 ):
     http_request_verifier = RequestVerifier(
