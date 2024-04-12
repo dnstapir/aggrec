@@ -47,7 +47,7 @@ test: $(DEPENDS)
 	poetry run pytest --ruff --ruff-format
 
 lint:
-	poetry run pylama
+	poetry run ruff check .
 
 reformat:
 	poetry run ruff format .
