@@ -222,15 +222,30 @@ async def create_aggregate(
     ],
     content_digest: Annotated[
         str,
-        Header(description="RFC 9530 Digest"),
+        Header(title="RFC 9530 Digest"),
+    ],
+    content_length: Annotated[
+        int,
+        Header(title="RFC 9112 Content Length"),
     ],
     signature: Annotated[
         str,
-        Header(description="RFC 9421 Signature"),
+        Header(
+            title="RFC 9421 Signature",
+            description="""
+The following HTTP headers MUST be signed:
+
+- Content-Length
+- Content-Type
+- Content-Digest
+
+Derived components MUST NOT be included in the signature input.
+""",
+        ),
     ],
     signature_input: Annotated[
         str,
-        Header(description="RFC 9421 Signature Input"),
+        Header(title="RFC 9421 Signature Input"),
     ],
     request: Request,
 ):
