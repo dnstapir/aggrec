@@ -6,11 +6,14 @@ from typing import Optional
 import mongoengine
 import uvicorn
 from fastapi import FastAPI
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 import aggrec.aggregates
-from aggrec import __verbose_version__
-from aggrec.logging import JsonFormatter  # noqa
-from aggrec.settings import Settings
+import aggrec.extras
+
+from . import OPENAPI_METADATA, __verbose_version__
+from .logging import JsonFormatter  # noqa
+from .settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +53,10 @@ LOGGING_CONFIG_JSON = {
 
 class AggrecServer(FastAPI):
     def __init__(self):
-        super().__init__()
+        super().__init__(**OPENAPI_METADATA)
+        self.add_middleware(ProxyHeadersMiddleware)
+        self.include_router(aggrec.aggregates.router)
+        self.include_router(aggrec.extras.router)
 
     @staticmethod
     def create_settings(config_filename: Optional[str]):
@@ -78,7 +84,6 @@ class AggrecServer(FastAPI):
         logger.info("Starting Aggregate Receiver version %s", __verbose_version__)
         app = cls()
         app.settings = app.create_settings(config_filename)
-        app.include_router(aggrec.aggregates.router)
         app.connect_mongodb(app.settings)
         return app
 
