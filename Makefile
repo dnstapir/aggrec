@@ -1,6 +1,7 @@
 CONTAINER=		ghcr.io/dnstapir/aggrec:latest
 CONTAINER_BASE=		aggrec:latest
 BUILDINFO=		aggrec/buildinfo.py
+OPENAPI=		aggrec-api.yaml
 
 DEPENDS=		$(BUILDINFO)
 
@@ -9,6 +10,11 @@ all: $(DEPENDS)
 
 $(BUILDINFO):
 	printf "__commit__ = \"`git rev-parse HEAD`\"\n__timestamp__ = \"`date +'%Y-%m-%d %H:%M:%S %Z'`\"\n" > $(BUILDINFO)
+
+openapi: $(OPENAPI)
+
+$(OPENAPI): $(DEPENDS)
+	poetry run python tools/export_openapi_yaml.py > $@
 
 container: $(DEPENDS)
 	docker buildx build -t $(CONTAINER) -t $(CONTAINER_BASE) .
@@ -49,7 +55,7 @@ reformat:
 clean:
 	rm -f *.pem
 	rm -fr clients
-	rm -f $(BUILDINFO)
+	rm -f $(BUILDINFO) $(OPENAPI)
 
 realclean: clean
 	poetry env remove --all

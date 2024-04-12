@@ -208,6 +208,7 @@ def get_s3_object_metadata(metadata: AggregateMetadata) -> dict:
             },
         }
     },
+    tags=["client"],
 )
 async def create_aggregate(
     aggregate_type: AggregateType,
@@ -218,6 +219,33 @@ async def create_aggregate(
             description="Aggregate window as an ISO 8601 time interval (start and duration)",
             example="1984-01-01T12:00:00Z/PT1M",
         ),
+    ],
+    content_digest: Annotated[
+        str,
+        Header(title="RFC 9530 Digest"),
+    ],
+    content_length: Annotated[
+        int,
+        Header(title="RFC 9112 Content Length"),
+    ],
+    signature: Annotated[
+        str,
+        Header(
+            title="RFC 9421 Signature",
+            description="""
+The following HTTP headers MUST be signed:
+
+- Content-Length
+- Content-Type
+- Content-Digest
+
+Derived components MUST NOT be included in the signature input.
+""",
+        ),
+    ],
+    signature_input: Annotated[
+        str,
+        Header(title="RFC 9421 Signature Input"),
     ],
     request: Request,
 ):
@@ -301,6 +329,7 @@ async def create_aggregate(
         200: {"model": AggregateMetadataResponse},
         404: {},
     },
+    tags=["backend"],
 )
 def get_aggregate_metadata(
     aggregate_id: str,
@@ -335,6 +364,7 @@ def get_aggregate_metadata(
         },
         404: {},
     },
+    tags=["backend"],
 )
 async def get_aggregate_payload(
     aggregate_id: str,
