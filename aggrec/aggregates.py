@@ -143,9 +143,7 @@ def get_new_aggregate_event_message(
             {
                 "aggregate_interval_start": metadata.aggregate_interval_start.astimezone(
                     tz=timezone.utc
-                ).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
+                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "aggregate_interval_duration": metadata.aggregate_interval_duration,
             }
             if metadata.aggregate_interval_start

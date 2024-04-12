@@ -38,14 +38,13 @@ clients/test.pem: test-private.pem
 	openssl ec -in $< -pubout -out $@
 
 test: $(DEPENDS)
-	poetry run pytest --isort --black --pylama
+	poetry run pytest --ruff --ruff-format
 
 lint:
 	poetry run pylama
 
 reformat:
-	poetry run isort .
-	poetry run black .
+	poetry run ruff format .
 
 clean:
 	rm -f *.pem
