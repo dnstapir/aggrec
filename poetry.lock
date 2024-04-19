@@ -634,13 +634,13 @@ files = [
 
 [[package]]
 name = "http-message-signatures"
-version = "0.4.4"
+version = "0.5.0"
 description = "An implementation of the IETF HTTP Message Signatures draft standard"
 optional = false
 python-versions = "*"
 files = [
-    {file = "http-message-signatures-0.4.4.tar.gz", hash = "sha256:a186572ba3d3b020c5cf1c3dbd6a12dbc07fc96768fead9eb421dc739098671b"},
-    {file = "http_message_signatures-0.4.4-py3-none-any.whl", hash = "sha256:7b2b504c75222b3ea3bbc9acf1285df6b67a2d88d42464f626a6533b70c286f7"},
+    {file = "http-message-signatures-0.5.0.tar.gz", hash = "sha256:5a59de19b90dce0eaf62021ee776d6562e5a166c96e4107db36f9c01f25552a3"},
+    {file = "http_message_signatures-0.5.0-py3-none-any.whl", hash = "sha256:719933cba48943b5e148fe7bbbf520927573f72c6ca00855cb2c79fdecee2cb2"},
 ]
 
 [package.dependencies]
@@ -648,7 +648,7 @@ cryptography = ">=36.0.2"
 http-sfv = ">=0.9.3"
 
 [package.extras]
-tests = ["build", "coverage", "flake8", "mypy", "requests", "wheel"]
+tests = ["build", "coverage", "flake8", "mypy", "requests", "ruff", "wheel"]
 
 [[package]]
 name = "http-sfv"
@@ -1819,4 +1819,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "f91b237e55fe5b779d01ba5f72b00490c60d7088de3b23275305425375f928f0"
+content-hash = "bcd2c1d5b87b84dea1d1e4c8133b68c77e88d598d81ad3f96bf164b9ac73003d"
