@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from contextlib import suppress
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Annotated, Dict, List
@@ -297,10 +298,8 @@ Derived components MUST NOT be included in the signature input.
 
     async with get_s3_client(request.app.settings) as s3_client:
         if request.app.settings.s3_bucket_create:
-            try:
+            with suppress(Exception):
                 await s3_client.create_bucket(Bucket=s3_bucket)
-            except Exception:
-                pass
 
         await s3_client.put_object(
             Bucket=s3_bucket,
@@ -337,8 +336,8 @@ def get_aggregate_metadata(
 ) -> AggregateMetadataResponse:
     try:
         aggregate_object_id = ObjectId(aggregate_id)
-    except bson.errors.InvalidId:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    except bson.errors.InvalidId as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
         return AggregateMetadataResponse.from_db_model(metadata, request.app.settings)
@@ -372,8 +371,8 @@ async def get_aggregate_payload(
 ) -> bytes:
     try:
         aggregate_object_id = ObjectId(aggregate_id)
-    except bson.errors.InvalidId:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)
+    except bson.errors.InvalidId as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
         async with get_s3_client(request.app.settings) as s3_client:

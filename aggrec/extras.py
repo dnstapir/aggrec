@@ -8,7 +8,7 @@ router = APIRouter()
 
 
 @router.get("/openapi.yaml", include_in_schema=False)
-@functools.lru_cache()
+@functools.lru_cache
 def read_openapi_yaml(
     request: Request,
 ) -> Response:
