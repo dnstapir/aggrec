@@ -27,8 +27,8 @@ class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
         try:
             with open(filename, "rb") as fp:
                 return load_pem_public_key(fp.read())
-        except FileNotFoundError:
-            raise KeyError(key_id)
+        except FileNotFoundError as exc:
+            raise KeyError(key_id) from exc
 
 
 class ContentDigestException(ValueError):
@@ -74,27 +74,29 @@ class RequestVerifier:
         )
         try:
             results = verifier.verify(request)
-        except KeyError:
+        except KeyError as exc:
             raise HTTPException(
                 status.HTTP_401_UNAUTHORIZED, "Unknown HTTP signature key"
-            )
-        except InvalidSignature:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid HTTP signature")
+            ) from exc
+        except InvalidSignature as exc:
+            raise HTTPException(
+                status.HTTP_401_UNAUTHORIZED, "Invalid HTTP signature"
+            ) from exc
         except Exception as exc:
             self.logger.warning("Unable to verify HTTP signature", exc_info=exc)
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST, "Unable to verify HTTP signature"
-            )
+            ) from exc
 
         for result in results:
             try:
                 await self.verify_content_digest(result, request)
                 self.logger.debug("Content-Digest verified")
                 return result
-            except InvalidContentDigest:
+            except InvalidContentDigest as exc:
                 raise HTTPException(
                     status.HTTP_401_UNAUTHORIZED, "Content-Digest verification failed"
-                )
+                ) from exc
             except UnsupportedContentDigestAlgorithm:
                 self.logger.debug("Unsupported Content-Digest algorithm")
             except ContentDigestMissing:
