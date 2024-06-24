@@ -1,13 +1,15 @@
 name: Build container
 
 on:
-  schedule:
-    - cron: "0 10 * * *"
-  push:
+  workflow_run:
     branches:
-      - "main"
+      - main
     tags:
       - "v*.*.*"
+    workflows:
+      - test
+    types:
+      - completed
 
 env:
   REGISTRY: ghcr.io
