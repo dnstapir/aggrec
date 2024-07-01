@@ -7,9 +7,6 @@ from enum import Enum
 from typing import Annotated, Dict, List
 from urllib.parse import urljoin
 
-import aiobotocore.session
-import aiomqtt
-import boto3
 import bson
 import pendulum
 from bson.objectid import ObjectId
@@ -105,17 +102,6 @@ def get_http_headers(
         if value := request.headers.get(header):
             res[header] = value
     return res
-
-
-def get_s3_client(settings: Settings):
-    return aiobotocore.session.AioSession().create_client(
-        "s3",
-        endpoint_url=settings.s3_endpoint_url,
-        aws_access_key_id=settings.s3_access_key_id,
-        aws_secret_access_key=settings.s3_secret_access_key,
-        aws_session_token=None,
-        config=boto3.session.Config(signature_version="s3v4"),
-    )
 
 
 def get_new_aggregate_event_message(
@@ -263,7 +249,7 @@ Derived components MUST NOT be included in the signature input.
     aggregate_id = ObjectId()
     location = f"/api/v1/aggregates/{aggregate_id}"
 
-    s3_bucket = request.app.settings.s3_bucket
+    s3_bucket = request.app.settings.s3.bucket
 
     if aggregate_interval:
         period = pendulum.parse(aggregate_interval)
@@ -296,8 +282,8 @@ Derived components MUST NOT be included in the signature input.
     s3_object_metadata = get_s3_object_metadata(metadata)
     logger.debug("S3 object metadata: %s", s3_object_metadata)
 
-    async with get_s3_client(request.app.settings) as s3_client:
-        if request.app.settings.s3_bucket_create:
+    async with request.app.get_s3_client() as s3_client:
+        if request.app.settings.s3.create_bucket:
             with suppress(Exception):
                 await s3_client.create_bucket(Bucket=s3_bucket)
 
@@ -313,9 +299,9 @@ Derived components MUST NOT be included in the signature input.
     metadata.save()
     logger.info("Metadata saved: %s", metadata.id)
 
-    async with aiomqtt.Client(request.app.settings.mqtt_broker) as mqtt_client:
+    async with request.app.get_mqtt_client() as mqtt_client:
         await mqtt_client.publish(
-            request.app.settings.mqtt_topic,
+            request.app.settings.mqtt.topic,
             json.dumps(get_new_aggregate_event_message(metadata, request.app.settings)),
         )
 
@@ -375,7 +361,7 @@ async def get_aggregate_payload(
         raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
-        async with get_s3_client(request.app.settings) as s3_client:
+        async with request.app.get_s3_client() as s3_client:
             s3_obj = await s3_client.get_object(
                 Bucket=metadata.s3_bucket, Key=metadata.s3_object_key
             )

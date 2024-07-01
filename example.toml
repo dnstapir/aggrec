@@ -1,15 +1,18 @@
-CLIENTS_DATABASE = "clients"
+clients_database = "clients"
 
-METADATA_BASE_URL = "http://127.0.0.1:8080"
+metadata_base_url= "http://127.0.0.1:8080"
 
-S3_ENDPOINT_URL = "http://localhost:9000"
-S3_BUCKET = "aggregates"
-S3_BUCKET_CREATE = true
-S3_ACCESS_KEY_ID = "minioadmin"
-S3_SECRET_ACCESS_KEY = "minioadmin"
+[s3]
+endpoint_url = "http://localhost:9000"
+bucket = "aggregates"
+create_bucket = true
+access_key_id = "minioadmin"
+secret_access_key = "minioadmin"
 
-MONGODB_HOST = "mongodb://localhost/aggregates"
-#MONGODB_HOST = "mongomock://localhost/aggregates"
+[mongodb]
+server =  "mongodb://localhost/aggregates"
+#server = "mongomock://localhost/aggregates"
 
-MQTT_BROKER = "localhost"
-MQTT_TOPIC = "aggregates"
+[mqtt]
+broker = "mqtt://localhost"
+topic = "aggregates"
