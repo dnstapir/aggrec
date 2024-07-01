@@ -78,7 +78,7 @@ class AggregateMetadataResponse(BaseModel):
             content_type=metadata.content_type,
             content_length=metadata.content_length,
             content_location=urljoin(
-                settings.metadata_base_url,
+                str(settings.metadata_base_url),
                 f"/api/v1/aggregates/{aggregate_id}/payload",
             ),
             s3_bucket=metadata.s3_bucket,
@@ -117,11 +117,11 @@ def get_new_aggregate_event_message(
         "created": metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "creator": str(metadata.creator),
         "metadata_location": urljoin(
-            settings.metadata_base_url,
+            str(settings.metadata_base_url),
             f"/api/v1/aggregates/{metadata.id}",
         ),
         "content_location": urljoin(
-            settings.metadata_base_url,
+            str(settings.metadata_base_url),
             f"/api/v1/aggregates/{metadata.id}/payload",
         ),
         "s3_bucket": metadata.s3_bucket,

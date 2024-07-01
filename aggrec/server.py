@@ -85,7 +85,7 @@ class AggrecServer(FastAPI):
         session = aiobotocore.session.AioSession()
         return session.create_client(
             service_name="s3",
-            endpoint_url=self.settings.s3.endpoint_url,
+            endpoint_url=str(self.settings.s3.endpoint_url),
             aws_access_key_id=self.settings.s3.access_key_id,
             aws_secret_access_key=self.settings.s3.secret_access_key,
             aws_session_token=None,
