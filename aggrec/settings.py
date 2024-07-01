@@ -38,16 +38,16 @@ class S3(BaseModel):
     endpoint_url: AnyHttpUrl = Field(default="http://localhost:9000")
     access_key_id: str | None = None
     secret_access_key: str | None = None
-    bucket: str
+    bucket: str = Field(default="aggrec")
     create_bucket: bool = False
 
 
 class Settings(BaseSettings):
     metadata_base_url: AnyHttpUrl = Field(default="http://127.0.0.1")
     clients_database: DirectoryPath = Field(default="clients")
-    s3: S3 = Field()
+    s3: S3 = Field(default=S3())
     mqtt: MqttSettings = Field(default=MqttSettings())
-    mongodb: MongoDB = Field()
+    mongodb: MongoDB = Field(default=MongoDB())
 
     model_config = SettingsConfigDict(toml_file="aggrec.toml")
 
