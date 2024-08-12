@@ -9,20 +9,26 @@ Client are assumed to be authenticated using mTLS and all submitted data must be
 
 ## Configuration
 
-    METADATA_BASE_URL = "http://127.0.0.1:5000"
+The default configuration file is `aggrec.toml`. Example configuration below:
 
-    CLIENTS_DATABASE = "/etc/aggrec/clients"
+    clients_database = "clients"
 
-    S3_ENDPOINT_URL = "http://localhost:9000"
-    S3_BUCKET = "aggregates"
-    S3_BUCKET_CREATE = true
-    S3_ACCESS_KEY_ID = "minioadmin"
-    S3_SECRET_ACCESS_KEY = "minioadmin"
+    metadata_base_url= "http://127.0.0.1:8080"
 
-    MONGODB_HOST = "mongodb://localhost/aggregates"
+    [s3]
+    endpoint_url = "http://localhost:9000"
+    bucket = "aggregates"
+    create_bucket = true
+    access_key_id = "minioadmin"
+    secret_access_key = "minioadmin"
 
-    MQTT_BROKER = "localhost"
-    MQTT_TOPIC = "aggregates"
+    [mongodb]
+    server =  "mongodb://localhost/aggregates"
+    #server = "mongomock://localhost/aggregates"
+
+    [mqtt]
+    broker = "mqtt://localhost"
+    topic = "aggregates"
 
 
 ## API

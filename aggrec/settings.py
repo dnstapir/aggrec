@@ -1,35 +1,63 @@
-import tomllib
-from typing import Optional
+from typing import Annotated, Tuple, Type
 
-from pydantic_settings import BaseSettings
+from pydantic import AnyHttpUrl, BaseModel, DirectoryPath, Field, UrlConstraints
+from pydantic_core import Url
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+    TomlConfigSettingsSource,
+)
+
+MqttUrl = Annotated[
+    Url,
+    UrlConstraints(
+        allowed_schemes=["mqtt", "mqtts"], default_port=1883, host_required=True
+    ),
+]
+
+MongodbUrl = Annotated[
+    Url,
+    UrlConstraints(allowed_schemes=["mongodb"], default_port=27017, host_required=True),
+]
+
+
+class MqttSettings(BaseModel):
+    broker: MqttUrl = Field(default="mqtt://localhost")
+    username: str | None = None
+    password: str | None = None
+    topic: str = Field(default="aggregates")
+    reconnect_interval: int = Field(default=5)
+
+
+class MongoDB(BaseModel):
+    server: MongodbUrl | None = Field(default="mongodb://localhost/aggregates")
+
+
+class S3(BaseModel):
+    endpoint_url: AnyHttpUrl = Field(default="http://localhost:9000")
+    access_key_id: str | None = None
+    secret_access_key: str | None = None
+    bucket: str = Field(default="aggrec")
+    create_bucket: bool = False
 
 
 class Settings(BaseSettings):
-    metadata_base_url: str
-    clients_database: str
-    s3_endpoint_url: str
-    s3_access_key_id: Optional[str]
-    s3_secret_access_key: Optional[str]
-    s3_bucket: str
-    s3_bucket_create: bool
-    mongodb_host: Optional[str]
-    mqtt_broker: Optional[str]
-    mqtt_topic: str
+    metadata_base_url: AnyHttpUrl = Field(default="http://127.0.0.1")
+    clients_database: DirectoryPath = Field(default="clients")
+    s3: S3 = Field(default=S3())
+    mqtt: MqttSettings = Field(default=MqttSettings())
+    mongodb: MongoDB = Field(default=MongoDB())
+
+    model_config = SettingsConfigDict(toml_file="aggrec.toml")
 
     @classmethod
-    def from_file(cls, filename: str):
-        with open(filename, "rb") as fp:
-            data = tomllib.load(fp)
-
-        return cls(
-            metadata_base_url=data.get("METADATA_BASE_URL", "http://127.0.0.1"),
-            clients_database=data.get("CLIENTS_DATABASE", "clients"),
-            s3_endpoint_url=data.get("S3_ENDPOINT_URL", "http://localhost:9000"),
-            s3_access_key_id=data.get("S3_ACCESS_KEY_ID"),
-            s3_secret_access_key=data.get("S3_SECRET_ACCESS_KEY"),
-            s3_bucket=data.get("S3_BUCKET", "aggregates"),
-            s3_bucket_create=data.get("S3_BUCKET_CREATE", False),
-            mongodb_host=data.get("MONGODB_HOST", "mongodb://localhost/aggregates"),
-            mqtt_broker=data.get("MQTT_BROKER"),
-            mqtt_topic=data.get("MQTT_TOPIC", "aggregates"),
-        )
+    def settings_customise_sources(
+        cls,
+        settings_cls: Type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+        return (TomlConfigSettingsSource(settings_cls),)

@@ -23,7 +23,7 @@ push-container:
 	docker push $(CONTAINER)
 
 server: $(DEPENDS) clients clients/test.pem
-	poetry run aggrec_server --config example.toml --host 127.0.0.1 --port 8080 --debug
+	poetry run aggrec_server --host 127.0.0.1 --port 8080 --debug
 
 keys: test.pem
 

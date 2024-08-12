@@ -1,8 +1,10 @@
 from fastapi.testclient import TestClient
 
 from aggrec.server import AggrecServer
+from aggrec.settings import Settings
 
 
 def test_server():
-    app = AggrecServer()
+    settings = Settings()
+    app = AggrecServer(settings)
     _ = TestClient(app)
