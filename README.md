@@ -24,7 +24,6 @@ The default configuration file is `aggrec.toml`. Example configuration below:
 
     [mongodb]
     server =  "mongodb://localhost/aggregates"
-    #server = "mongomock://localhost/aggregates"
 
     [mqtt]
     broker = "mqtt://localhost"
