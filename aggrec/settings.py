@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated, Tuple, Type
 
 from pydantic import AnyHttpUrl, BaseModel, DirectoryPath, Field, UrlConstraints
@@ -40,6 +41,9 @@ class S3(BaseModel):
     secret_access_key: str | None = None
     bucket: str = Field(default="aggrec")
     create_bucket: bool = False
+
+    def get_bucket_name(self) -> str:
+        return datetime.now(tz=timezone.utc).strftime(self.bucket)
 
 
 class Settings(BaseSettings):
