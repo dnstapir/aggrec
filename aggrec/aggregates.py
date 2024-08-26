@@ -249,7 +249,7 @@ Derived components MUST NOT be included in the signature input.
     aggregate_id = ObjectId()
     location = f"/api/v1/aggregates/{aggregate_id}"
 
-    s3_bucket = request.app.settings.s3.bucket
+    s3_bucket = request.app.settings.s3.get_bucket_name()
 
     if aggregate_interval:
         period = pendulum.parse(aggregate_interval)
