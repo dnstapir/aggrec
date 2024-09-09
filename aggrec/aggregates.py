@@ -12,6 +12,7 @@ import pendulum
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
+from opentelemetry import metrics, trace
 from pydantic import BaseModel, Field
 
 from aggrec.helpers import RequestVerifier
@@ -21,6 +22,14 @@ from .helpers import pendulum_as_datetime, rfc_3339_datetime_now
 from .settings import Settings
 
 logger = logging.getLogger(__name__)
+
+tracer = trace.get_tracer("aggrec.tracer")
+meter = metrics.get_meter("aggrec.meter")
+
+aggregates_counter = meter.create_counter(
+    "aggregates.counter",
+    description="The number of aggregates stored",
+)
 
 
 METADATA_HTTP_HEADERS = [
@@ -236,10 +245,13 @@ Derived components MUST NOT be included in the signature input.
     ],
     request: Request,
 ):
-    http_request_verifier = RequestVerifier(
-        client_database=request.app.settings.clients_database
-    )
-    res = await http_request_verifier.verify(request)
+    span = trace.get_current_span()
+
+    with tracer.start_as_current_span("http_request_verifier"):
+        http_request_verifier = RequestVerifier(
+            client_database=request.app.settings.clients_database
+        )
+        res = await http_request_verifier.verify(request)
 
     creator = res.parameters.get("keyid")
     logger.info("Create aggregate request by keyid=%s", creator)
@@ -248,6 +260,10 @@ Derived components MUST NOT be included in the signature input.
 
     aggregate_id = ObjectId()
     location = f"/api/v1/aggregates/{aggregate_id}"
+
+    span.set_attribute("aggregate.id", str(aggregate_id))
+    span.set_attribute("aggregate.type", aggregate_type.value)
+    span.set_attribute("aggregate.creator", creator)
 
     s3_bucket = request.app.settings.s3.get_bucket_name()
 
@@ -287,23 +303,29 @@ Derived components MUST NOT be included in the signature input.
             with suppress(Exception):
                 await s3_client.create_bucket(Bucket=s3_bucket)
 
-        await s3_client.put_object(
-            Bucket=s3_bucket,
-            Key=metadata.s3_object_key,
-            Metadata=s3_object_metadata,
-            ContentType=content_type,
-            Body=content,
-        )
+        with tracer.start_as_current_span("s3.put_object"):
+            await s3_client.put_object(
+                Bucket=s3_bucket,
+                Key=metadata.s3_object_key,
+                Metadata=s3_object_metadata,
+                ContentType=content_type,
+                Body=content,
+            )
         logger.info("Object created: %s", metadata.s3_object_key)
 
     metadata.save()
     logger.info("Metadata saved: %s", metadata.id)
 
+    aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
+
     async with request.app.get_mqtt_client() as mqtt_client:
-        await mqtt_client.publish(
-            request.app.settings.mqtt.topic,
-            json.dumps(get_new_aggregate_event_message(metadata, request.app.settings)),
-        )
+        with tracer.start_as_current_span("mqtt.publish"):
+            await mqtt_client.publish(
+                request.app.settings.mqtt.topic,
+                json.dumps(
+                    get_new_aggregate_event_message(metadata, request.app.settings)
+                ),
+            )
 
     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": location})
 
@@ -361,10 +383,11 @@ async def get_aggregate_payload(
         raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
-        async with request.app.get_s3_client() as s3_client:
-            s3_obj = await s3_client.get_object(
-                Bucket=metadata.s3_bucket, Key=metadata.s3_object_key
-            )
+        with tracer.start_as_current_span("s3.get_object"):
+            async with request.app.get_s3_client() as s3_client:
+                s3_obj = await s3_client.get_object(
+                    Bucket=metadata.s3_bucket, Key=metadata.s3_object_key
+                )
 
         metadata_location = f"/api/v1/aggregates/{aggregate_id}"
 

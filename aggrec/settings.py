@@ -46,12 +46,19 @@ class S3(BaseModel):
         return datetime.now(tz=timezone.utc).strftime(self.bucket)
 
 
+class OtlpSettings(BaseModel):
+    spans_endpoint: AnyHttpUrl | None = None
+    metrics_endpoint: AnyHttpUrl | None = None
+    insecure: bool = False
+
+
 class Settings(BaseSettings):
     metadata_base_url: AnyHttpUrl = Field(default="http://127.0.0.1")
     clients_database: DirectoryPath = Field(default="clients")
     s3: S3 = Field(default=S3())
     mqtt: MqttSettings = Field(default=MqttSettings())
     mongodb: MongoDB = Field(default=MongoDB())
+    otlp: OtlpSettings = Field(default=OtlpSettings())
 
     model_config = SettingsConfigDict(toml_file="aggrec.toml")
 

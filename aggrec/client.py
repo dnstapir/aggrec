@@ -91,6 +91,13 @@ def main() -> None:
     parser.add_argument(
         "--gzip", action="store_true", help="Compress payload using GZIP"
     )
+    parser.add_argument(
+        "--count",
+        metavar="number",
+        help="Number of aggregate copies to submit",
+        type=int,
+        default=1,
+    )
     parser.add_argument("--debug", action="store_true", help="Enable debugging")
 
     args = parser.parse_args()
@@ -144,27 +151,32 @@ def main() -> None:
         print(f"{k}: {v}")
     print("")
 
-    resp = session.send(req)
-    resp.raise_for_status()
+    for _ in range(args.count):
+        resp = session.send(req)
+        resp.raise_for_status()
+        print(resp)
 
-    print(resp)
-    for k, v in resp.headers.items():
-        print(f"{k}: {v}")
-    print("")
-    print(resp.text)
+        if args.count == 1:
+            for k, v in resp.headers.items():
+                print(f"{k}: {v}")
+            print("")
+            print(resp.text)
+        else:
+            print(resp.headers["location"])
 
-    location = resp.headers["location"]
-    resp = session.get(urljoin(args.server, location))
-    resp.raise_for_status()
-    print(resp)
-    print(resp.headers)
-    print(json.dumps(json.loads(resp.content), indent=4))
+    if args.count == 1:
+        location = resp.headers["location"]
+        resp = session.get(urljoin(args.server, location))
+        resp.raise_for_status()
+        print(resp)
+        print(resp.headers)
+        print(json.dumps(json.loads(resp.content), indent=4))
 
-    resp = session.get(resp.json()["content_location"])
-    resp.raise_for_status()
-    print(resp)
-    print(resp.headers)
-    print(len(resp.content))
+        resp = session.get(resp.json()["content_location"])
+        resp.raise_for_status()
+        print(resp)
+        print(resp.headers)
+        print(len(resp.content))
 
 
 if __name__ == "__main__":
