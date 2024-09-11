@@ -15,6 +15,7 @@ import aggrec.extras
 from . import OPENAPI_METADATA, __verbose_version__
 from .logging import JsonFormatter  # noqa
 from .settings import Settings
+from .telemetry import configure_opentelemetry
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,13 @@ class AggrecServer(FastAPI):
         self.add_middleware(ProxyHeadersMiddleware)
         self.include_router(aggrec.aggregates.router)
         self.include_router(aggrec.extras.router)
+        configure_opentelemetry(
+            self,
+            service_name="aggrec",
+            spans_endpoint=str(settings.otlp.spans_endpoint),
+            metrics_endpoint=str(settings.otlp.metrics_endpoint),
+            insecure=settings.otlp.insecure,
+        )
 
     @staticmethod
     def connect_mongodb(settings: Settings):
@@ -74,16 +82,18 @@ class AggrecServer(FastAPI):
             mongoengine.connect(**params, tz_aware=True)
 
     def get_mqtt_client(self) -> aiomqtt.Client:
-        return aiomqtt.Client(
+        client = aiomqtt.Client(
             hostname=self.settings.mqtt.broker.host,
             port=self.settings.mqtt.broker.port,
             username=self.settings.mqtt.broker.username,
             password=self.settings.mqtt.broker.password,
         )
+        self.logger.debug("Created MQTT client %s", client)
+        return client
 
     def get_s3_client(self) -> aiobotocore.session.ClientCreatorContext:
         session = aiobotocore.session.AioSession()
-        return session.create_client(
+        client = session.create_client(
             service_name="s3",
             endpoint_url=str(self.settings.s3.endpoint_url),
             aws_access_key_id=self.settings.s3.access_key_id,
@@ -91,6 +101,8 @@ class AggrecServer(FastAPI):
             aws_session_token=None,
             config=boto3.session.Config(signature_version="s3v4"),
         )
+        self.logger.debug("Created S3 client %s", client)
+        return client
 
     @classmethod
     def factory(cls):
