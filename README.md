@@ -29,6 +29,11 @@ The default configuration file is `aggrec.toml`. Example configuration below:
     broker = "mqtt://localhost"
     topic = "aggregates"
 
+    [otlp]
+    spans_endpoint = "http://localhost:4317"
+    metrics_endpoint = "http://localhost:4317"
+    insecure = true
+
 
 ## API
 
