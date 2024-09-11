@@ -41,6 +41,8 @@ def configure_opentelemetry(
     meterProvider = MeterProvider(resource=resource, metric_readers=[reader])
     metrics.set_meter_provider(meterProvider)
 
-    FastAPIInstrumentor.instrument_app(app)
+    FastAPIInstrumentor.instrument_app(
+        app=app, http_capture_headers_server_request=["x-request-id"]
+    )
     PymongoInstrumentor().instrument()
     BotocoreInstrumentor().instrument()

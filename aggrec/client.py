@@ -3,6 +3,7 @@ import gzip
 import hashlib
 import json
 import logging
+import uuid
 from urllib.parse import urljoin
 
 import http_sfv
@@ -129,6 +130,7 @@ def main() -> None:
     req.headers["Aggregate-Interval"] = args.interval
 
     req = req.prepare()
+    req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
     req.headers["Content-Digest"] = str(
         http_sfv.Dictionary({"sha-256": hashlib.sha256(req.body).digest()})
