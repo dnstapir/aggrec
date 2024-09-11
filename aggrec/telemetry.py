@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI
 from opentelemetry import metrics, trace
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
@@ -14,14 +16,17 @@ from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
+logger = logging.getLogger(__name__)
+
 
 def configure_opentelemetry(
     app: FastAPI,
+    service_name: str,
     spans_endpoint: str | None = None,
     metrics_endpoint: str | None = None,
     insecure: bool = True,
 ) -> None:
-    resource = Resource(attributes={SERVICE_NAME: "aggrec"})
+    resource = Resource(attributes={SERVICE_NAME: service_name})
 
     traceProvider = TracerProvider(resource=resource)
 
@@ -32,6 +37,7 @@ def configure_opentelemetry(
     )
     traceProvider.add_span_processor(processor)
     trace.set_tracer_provider(traceProvider)
+    logger.debug("OTLP spans via %s", spans_endpoint or "console")
 
     reader = PeriodicExportingMetricReader(
         OTLPMetricExporter(endpoint=metrics_endpoint, insecure=insecure)
@@ -40,6 +46,7 @@ def configure_opentelemetry(
     )
     meterProvider = MeterProvider(resource=resource, metric_readers=[reader])
     metrics.set_meter_provider(meterProvider)
+    logger.debug("OTLP metrics via %s", metrics_endpoint or "console")
 
     FastAPIInstrumentor.instrument_app(
         app=app,
@@ -51,3 +58,5 @@ def configure_opentelemetry(
     )
     PymongoInstrumentor().instrument()
     BotocoreInstrumentor().instrument()
+
+    logger.info("OpenTelemetry configured")

@@ -63,6 +63,7 @@ class AggrecServer(FastAPI):
         self.include_router(aggrec.extras.router)
         configure_opentelemetry(
             self,
+            service_name="aggrec",
             spans_endpoint=str(settings.otlp.spans_endpoint),
             metrics_endpoint=str(settings.otlp.metrics_endpoint),
             insecure=settings.otlp.insecure,
