@@ -6,7 +6,7 @@ import logging
 import uuid
 from urllib.parse import urljoin
 
-import http_sfv
+import http_sf
 import pendulum
 import requests
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -132,8 +132,8 @@ def main() -> None:
     req = req.prepare()
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
-    req.headers["Content-Digest"] = str(
-        http_sfv.Dictionary({"sha-256": hashlib.sha256(req.body).digest()})
+    req.headers["Content-Digest"] = http_sf.ser(
+        {"sha-256": hashlib.sha256(req.body).digest()}
     )
 
     if args.http_key_id:

@@ -28,6 +28,7 @@ opentelemetry-instrumentation-fastapi = "^0.48b0"
 opentelemetry-exporter-otlp = "^1.27.0"
 opentelemetry-instrumentation-botocore = "^0.48b0"
 opentelemetry-instrumentation-pymongo = "^0.48b0"
+http-sf = "^1.0.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"

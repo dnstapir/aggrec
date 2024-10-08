@@ -808,6 +808,23 @@ http-sfv = ">=0.9.3"
 tests = ["build", "coverage", "flake8", "mypy", "requests", "ruff", "wheel"]
 
 [[package]]
+name = "http-sf"
+version = "1.0.2"
+description = "Parse and serialise HTTP Structured Fields"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "http_sf-1.0.2-py3-none-any.whl", hash = "sha256:40fd9d1c8bf53a78860fd6a81649194a5b6af20264abbd89b9f6808d5c4feaad"},
+    {file = "http_sf-1.0.2.tar.gz", hash = "sha256:c1e26c594dfb4ce98bf5ac8a1284e896159f1f64e951e8513c7715b5705de887"},
+]
+
+[package.dependencies]
+typing-extensions = "*"
+
+[package.extras]
+dev = ["black", "build", "mypy", "pylint", "pytest", "pytest-md", "validate-pyproject"]
+
+[[package]]
 name = "http-sfv"
 version = "0.9.9"
 description = "Parse and serialise HTTP Structured Field Values"
@@ -2315,4 +2332,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "2b80239eab7cec06a7f7f8269c11494b6bb3e6d18c63a8ae6ad11abe4147fe86"
+content-hash = "fd00ce4929d44b415f8e193c4febdd1d0f07febf1983508afe3ca6a5d3e3a906"

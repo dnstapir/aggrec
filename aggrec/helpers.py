@@ -2,7 +2,7 @@ import hashlib
 import logging
 from datetime import datetime, timezone
 
-import http_sfv
+import http_sf
 import pendulum
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from fastapi import HTTPException, Request, status
@@ -13,9 +13,13 @@ from http_message_signatures import (
     VerifyResult,
     algorithms,
 )
+from http_message_signatures.algorithms import (
+    signature_algorithms as supported_signature_algorithms,
+)
 from http_message_signatures.exceptions import InvalidSignature
 from werkzeug.utils import safe_join
 
+DEFAULT_SIGNATURE_ALGORITHM = algorithms.ECDSA_P256_SHA256
 HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
 
 
@@ -55,7 +59,7 @@ class RequestVerifier:
         key_resolver: HTTPSignatureKeyResolver | None = None,
         client_database: str | None = None,
     ):
-        self.algorithm = algorithm or algorithms.ECDSA_P256_SHA256
+        self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
         self.key_resolver = (
             MyHTTPSignatureKeyResolver(client_database)
             if client_database
@@ -66,20 +70,38 @@ class RequestVerifier:
     async def verify_content_digest(self, result: VerifyResult, request: Request):
         """Verify Content-Digest"""
         if content_digest := result.covered_components.get('"content-digest"'):
-            content_digest_value = http_sfv.Dictionary()
-            content_digest_value.parse(content_digest.encode())
+            content_digest_value = http_sf.parse(
+                content_digest.encode(), tltype="dictionary"
+            )
             for alg, func in HASH_ALGORITHMS.items():
                 if digest := content_digest_value.get(alg):
-                    if digest.value == func(await request.body()).digest():
+                    if digest[0] == func(await request.body()).digest():
                         return
                     raise InvalidContentDigest
             raise UnsupportedContentDigestAlgorithm
         raise ContentDigestMissing
 
+    @staticmethod
+    def get_algorithm(headers: dict) -> str | None:
+        parse_signature_input = http_sf.parse(
+            headers["signature-input"].encode(), tltype="dictionary"
+        )
+        for _label, values in parse_signature_input.items():
+            for item in values:
+                if (
+                    isinstance(item, dict)
+                    and (alg := item.get("alg"))
+                    and isinstance(alg, str)
+                ):
+                    return str(alg)
+        return
+
     async def verify(self, request: Request) -> VerifyResult:
         """Verify request and return signer"""
+        alg = self.get_algorithm(request.headers)
+        signature_algorithm = supported_signature_algorithms[alg]
         verifier = HTTPMessageVerifier(
-            signature_algorithm=self.algorithm,
+            signature_algorithm=signature_algorithm,
             key_resolver=self.key_resolver,
         )
         try:
