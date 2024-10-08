@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from fastapi import HTTPException, Request, status
 from http_message_signatures import (
     HTTPMessageVerifier,
+    HTTPSignatureAlgorithm,
     HTTPSignatureKeyResolver,
     VerifyResult,
     algorithms,
@@ -48,9 +49,18 @@ class ContentDigestMissing(ContentDigestException):
 
 
 class RequestVerifier:
-    def __init__(self, client_database: str):
-        self.algorithm = algorithms.ECDSA_P256_SHA256
-        self.key_resolver = MyHTTPSignatureKeyResolver(client_database)
+    def __init__(
+        self,
+        algorithm: HTTPSignatureAlgorithm | None = None,
+        key_resolver: HTTPSignatureKeyResolver | None = None,
+        client_database: str | None = None,
+    ):
+        self.algorithm = algorithm or algorithms.ECDSA_P256_SHA256
+        self.key_resolver = (
+            MyHTTPSignatureKeyResolver(client_database)
+            if client_database
+            else key_resolver
+        )
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     async def verify_content_digest(self, result: VerifyResult, request: Request):
