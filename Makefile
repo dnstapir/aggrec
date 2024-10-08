@@ -67,7 +67,7 @@ reformat:
 
 clean:
 	rm -f $(PUBLIC_KEYS) $(PRIVATE_KEYS)
-	rm -fr clients
+	rm -fr clients random.bin
 	rm -f $(BUILDINFO) $(OPENAPI)
 
 realclean: clean
