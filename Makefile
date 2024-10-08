@@ -55,7 +55,7 @@ clients/test-p256.pem: test-private-p256.pem
 clients/test-ed25519.pem: test-private-ed25519.pem
 	openssl pkey -in $< -pubout -out $@
 
-test: $(DEPENDS)
+test: $(DEPENDS) $(PUBLIC_KEYS)
 	poetry run pytest --ruff --ruff-format
 
 lint:
