@@ -49,11 +49,11 @@ test-private-ed25519.pem:
 clients:
 	mkdir clients
 
-clients/test-p256.pem: test-private-p256.pem
-	openssl ec -in $< -pubout -out $@
+clients/test-p256.pem: clients test-private-p256.pem
+	openssl ec -in test-private-p256.pem -pubout -out $@
 
-clients/test-ed25519.pem: test-private-ed25519.pem
-	openssl pkey -in $< -pubout -out $@
+clients/test-ed25519.pem: clients test-private-ed25519.pem
+	openssl pkey -in test-private-ed25519.pem -pubout -out $@
 
 test: $(DEPENDS) $(PUBLIC_KEYS)
 	poetry run pytest --ruff --ruff-format
