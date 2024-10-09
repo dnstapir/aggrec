@@ -39,6 +39,11 @@ The default configuration file is `aggrec.toml`. Example configuration below:
 
 Documentation at `/docs` and `/redoc`.
 
+
+## Testing
+
+`docker-compose.yaml` contains a basic stack for running tests. Before testing, remember to create an access key after logging in to http://127.0.0.1:9001/ with username `minioadmin` and password `minioadmin`, and download the resulting `credentials.json`.
+
 ## References
 
 - [DNS TAPIR Aggregate Receiver API v1](aggrec/openapi.yaml)
