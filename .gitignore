@@ -12,3 +12,4 @@ aggrec/buildinfo.py
 *.pem
 clients
 credentials.json
+random.bin
