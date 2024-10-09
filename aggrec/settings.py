@@ -47,7 +47,7 @@ class OtlpSettings(BaseModel):
 
 class Settings(BaseSettings):
     metadata_base_url: AnyHttpUrl = Field(default="http://127.0.0.1")
-    clients_database: DirectoryPath = Field(default="clients")
+    clients_database: DirectoryPath | AnyHttpUrl = Field(default="clients")
     s3: S3 = Field(default=S3())
     mqtt: MqttSettings = Field(default=MqttSettings())
     mongodb: MongoDB = Field(default=MongoDB())

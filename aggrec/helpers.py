@@ -1,8 +1,10 @@
 import hashlib
 import logging
 from datetime import datetime, timezone
+from urllib.parse import urljoin
 
 import http_sf
+import httpx
 import pendulum
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from fastapi import HTTPException, Request, status
@@ -15,23 +17,11 @@ from http_message_signatures import (
 )
 from http_message_signatures.algorithms import signature_algorithms as supported_signature_algorithms
 from http_message_signatures.exceptions import InvalidSignature
+from pydantic import AnyHttpUrl, DirectoryPath
 from werkzeug.utils import safe_join
 
 DEFAULT_SIGNATURE_ALGORITHM = algorithms.ECDSA_P256_SHA256
 HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
-
-
-class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
-    def __init__(self, client_database: str):
-        self.client_database = client_database
-
-    def resolve_public_key(self, key_id: str):
-        filename = safe_join(self.client_database, f"{key_id}.pem")
-        try:
-            with open(filename, "rb") as fp:
-                return load_pem_public_key(fp.read())
-        except FileNotFoundError as exc:
-            raise KeyError(key_id) from exc
 
 
 class ContentDigestException(ValueError):
@@ -50,15 +40,52 @@ class ContentDigestMissing(ContentDigestException):
     pass
 
 
+class FileKeyResolver(HTTPSignatureKeyResolver):
+    def __init__(self, client_database_directory: str):
+        self.client_database_directory = client_database_directory
+
+    def resolve_public_key(self, key_id: str):
+        filename = safe_join(self.client_database_directory, f"{key_id}.pem")
+        try:
+            with open(filename, "rb") as fp:
+                return load_pem_public_key(fp.read())
+        except FileNotFoundError as exc:
+            raise KeyError(key_id) from exc
+
+
+class UrlKeyResolver(HTTPSignatureKeyResolver):
+    def __init__(self, client_database_base_url: str):
+        self.client_database_base_url = client_database_base_url
+        self.httpx_client = httpx.Client()
+
+    def resolve_public_key(self, key_id: str):
+        public_key_url = urljoin(self.client_database_base_url, f"{key_id}.pem")
+        try:
+            response = self.httpx_client.get(public_key_url)
+            response.raise_for_status()
+            return load_pem_public_key(response.content)
+        except httpx.HTTPError as exc:
+            raise KeyError(key_id) from exc
+
+
 class RequestVerifier:
     def __init__(
         self,
         algorithm: HTTPSignatureAlgorithm | None = None,
         key_resolver: HTTPSignatureKeyResolver | None = None,
-        client_database: str | None = None,
+        client_database: AnyHttpUrl | DirectoryPath | None = None,
     ):
         self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
-        self.key_resolver = MyHTTPSignatureKeyResolver(client_database) if client_database else key_resolver
+        if key_resolver:
+            self.key_resolver = key_resolver
+        elif client_database and (
+            str(client_database).startswith("http://") or str(client_database).startswith("https://")
+        ):
+            self.key_resolver = UrlKeyResolver(str(client_database))
+        elif client_database:
+            self.key_resolver = FileKeyResolver(str(client_database))
+        else:
+            raise ValueError("No key resolver nor client database specified")
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     async def verify_content_digest(self, result: VerifyResult, request: Request):
