@@ -66,12 +66,8 @@ class AggregateMetadataResponse(BaseModel):
     content_location: str = Field(title="Content location (URL)")
     s3_bucket: str = Field(title="S3 bucket name")
     s3_object_key: str = Field(title="S3 object key")
-    aggregate_interval_start: datetime | None = Field(
-        default=None, title="Aggregate interval start"
-    )
-    aggregate_interval_duration: int | None = Field(
-        default=None, title="Aggregate interval duration (seconds)"
-    )
+    aggregate_interval_start: datetime | None = Field(default=None, title="Aggregate interval start")
+    aggregate_interval_duration: int | None = Field(default=None, title="Aggregate interval duration (seconds)")
 
     @classmethod
     def from_db_model(cls, metadata: AggregateMetadata, settings: Settings):
@@ -95,9 +91,7 @@ class AggregateMetadataResponse(BaseModel):
         )
 
 
-def get_http_headers(
-    request: Request, covered_components_headers: List[str]
-) -> Dict[str, str]:
+def get_http_headers(request: Request, covered_components_headers: List[str]) -> Dict[str, str]:
     """Get dictionary of relevant metadata HTTP headers"""
 
     relevant_headers = set([header.lower() for header in METADATA_HTTP_HEADERS])
@@ -113,9 +107,7 @@ def get_http_headers(
     return res
 
 
-def get_new_aggregate_event_message(
-    metadata: AggregateMetadata, settings: Settings
-) -> dict:
+def get_new_aggregate_event_message(metadata: AggregateMetadata, settings: Settings) -> dict:
     """Get new aggregate event message"""
     return {
         "version": 1,
@@ -137,13 +129,12 @@ def get_new_aggregate_event_message(
         "s3_object_key": metadata.s3_object_key,
         **(
             {
-                "aggregate_interval_start": metadata.aggregate_interval_start.astimezone(
-                    tz=timezone.utc
-                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "aggregate_interval_start": metadata.aggregate_interval_start.astimezone(tz=timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
                 "aggregate_interval_duration": metadata.aggregate_interval_duration,
             }
-            if metadata.aggregate_interval_start
-            and metadata.aggregate_interval_duration
+            if metadata.aggregate_interval_start and metadata.aggregate_interval_duration
             else {}
         ),
     }
@@ -177,13 +168,12 @@ def get_s3_object_metadata(metadata: AggregateMetadata) -> dict:
         "creator": str(metadata.creator),
         **(
             {
-                "interval-start": metadata.aggregate_interval_start.astimezone(
-                    tz=timezone.utc
-                ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "interval-start": metadata.aggregate_interval_start.astimezone(tz=timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
                 "interval-duration": str(metadata.aggregate_interval_duration),
             }
-            if metadata.aggregate_interval_start
-            and metadata.aggregate_interval_duration
+            if metadata.aggregate_interval_start and metadata.aggregate_interval_duration
             else {}
         ),
     }
@@ -248,9 +238,7 @@ Derived components MUST NOT be included in the signature input.
     span = trace.get_current_span()
 
     with tracer.start_as_current_span("http_request_verifier"):
-        http_request_verifier = RequestVerifier(
-            client_database=request.app.settings.clients_database
-        )
+        http_request_verifier = RequestVerifier(client_database=request.app.settings.clients_database)
         res = await http_request_verifier.verify(request)
 
     creator = res.parameters.get("keyid")
@@ -270,9 +258,7 @@ Derived components MUST NOT be included in the signature input.
     if aggregate_interval:
         period = pendulum.parse(aggregate_interval)
         if not isinstance(period, pendulum.Interval):
-            raise HTTPException(
-                status.HTTP_422_UNPROCESSABLE_ENTITY, "Invalid Aggregate-Interval"
-            )
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Invalid Aggregate-Interval")
         aggregate_interval_start = pendulum_as_datetime(period.start)
         aggregate_interval_duration = period.start.diff(period.end).in_seconds()
     else:
@@ -322,9 +308,7 @@ Derived components MUST NOT be included in the signature input.
         with tracer.start_as_current_span("mqtt.publish"):
             await mqtt_client.publish(
                 request.app.settings.mqtt.topic,
-                json.dumps(
-                    get_new_aggregate_event_message(metadata, request.app.settings)
-                ),
+                json.dumps(get_new_aggregate_event_message(metadata, request.app.settings)),
             )
 
     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": location})
@@ -385,9 +369,7 @@ async def get_aggregate_payload(
     if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
         with tracer.start_as_current_span("s3.get_object"):
             async with request.app.get_s3_client() as s3_client:
-                s3_obj = await s3_client.get_object(
-                    Bucket=metadata.s3_bucket, Key=metadata.s3_object_key
-                )
+                s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
 
         metadata_location = f"/api/v1/aggregates/{aggregate_id}"
 

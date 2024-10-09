@@ -8,10 +8,7 @@ from opentelemetry.instrumentation.botocore import BotocoreInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import (
-    ConsoleMetricExporter,
-    PeriodicExportingMetricReader,
-)
+from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
@@ -31,9 +28,7 @@ def configure_opentelemetry(
     traceProvider = TracerProvider(resource=resource)
 
     processor = BatchSpanProcessor(
-        OTLPSpanExporter(endpoint=spans_endpoint, insecure=insecure)
-        if spans_endpoint
-        else ConsoleSpanExporter()
+        OTLPSpanExporter(endpoint=spans_endpoint, insecure=insecure) if spans_endpoint else ConsoleSpanExporter()
     )
     traceProvider.add_span_processor(processor)
     trace.set_tracer_provider(traceProvider)

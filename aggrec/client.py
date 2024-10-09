@@ -13,11 +13,7 @@ import pendulum
 import requests
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from http_message_signatures import (
-    HTTPMessageSigner,
-    HTTPSignatureKeyResolver,
-    algorithms,
-)
+from http_message_signatures import HTTPMessageSigner, HTTPSignatureKeyResolver, algorithms
 
 DEFAULT_CONTENT_TYPE = "application/vnd.apache.parquet"
 DEFAULT_COVERED_COMPONENT_IDS = [
@@ -102,9 +98,7 @@ def main() -> None:
         help="Aggregate type",
         default="histogram",
     )
-    parser.add_argument(
-        "--gzip", action="store_true", help="Compress payload using GZIP"
-    )
+    parser.add_argument("--gzip", action="store_true", help="Compress payload using GZIP")
     parser.add_argument(
         "--count",
         metavar="number",
@@ -145,15 +139,11 @@ def main() -> None:
     req = req.prepare()
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
-    req.headers["Content-Digest"] = http_sf.ser(
-        {"sha-256": hashlib.sha256(req.body).digest()}
-    )
+    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.body).digest()})
 
     if args.http_key_id:
         key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
-        signer = HTTPMessageSigner(
-            signature_algorithm=key_resolver.algorithm, key_resolver=key_resolver
-        )
+        signer = HTTPMessageSigner(signature_algorithm=key_resolver.algorithm, key_resolver=key_resolver)
         signer.sign(
             req,
             key_id=args.http_key_id,

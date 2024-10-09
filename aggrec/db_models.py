@@ -1,13 +1,6 @@
 from enum import Enum
 
-from mongoengine import (
-    DateTimeField,
-    DictField,
-    Document,
-    EnumField,
-    IntField,
-    StringField,
-)
+from mongoengine import DateTimeField, DictField, Document, EnumField, IntField, StringField
 
 
 class AggregateType(Enum):

@@ -13,9 +13,7 @@ from http_message_signatures import (
     VerifyResult,
     algorithms,
 )
-from http_message_signatures.algorithms import (
-    signature_algorithms as supported_signature_algorithms,
-)
+from http_message_signatures.algorithms import signature_algorithms as supported_signature_algorithms
 from http_message_signatures.exceptions import InvalidSignature
 from werkzeug.utils import safe_join
 
@@ -60,19 +58,13 @@ class RequestVerifier:
         client_database: str | None = None,
     ):
         self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
-        self.key_resolver = (
-            MyHTTPSignatureKeyResolver(client_database)
-            if client_database
-            else key_resolver
-        )
+        self.key_resolver = MyHTTPSignatureKeyResolver(client_database) if client_database else key_resolver
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     async def verify_content_digest(self, result: VerifyResult, request: Request):
         """Verify Content-Digest"""
         if content_digest := result.covered_components.get('"content-digest"'):
-            content_digest_value = http_sf.parse(
-                content_digest.encode(), tltype="dictionary"
-            )
+            content_digest_value = http_sf.parse(content_digest.encode(), tltype="dictionary")
             for alg, func in HASH_ALGORITHMS.items():
                 if digest := content_digest_value.get(alg):
                     if digest[0] == func(await request.body()).digest():
@@ -83,16 +75,10 @@ class RequestVerifier:
 
     @staticmethod
     def get_algorithm(headers: dict) -> str | None:
-        parse_signature_input = http_sf.parse(
-            headers["signature-input"].encode(), tltype="dictionary"
-        )
+        parse_signature_input = http_sf.parse(headers["signature-input"].encode(), tltype="dictionary")
         for _label, values in parse_signature_input.items():
             for item in values:
-                if (
-                    isinstance(item, dict)
-                    and (alg := item.get("alg"))
-                    and isinstance(alg, str)
-                ):
+                if isinstance(item, dict) and (alg := item.get("alg")) and isinstance(alg, str):
                     return str(alg)
         return
 
@@ -107,18 +93,12 @@ class RequestVerifier:
         try:
             results = verifier.verify(request)
         except KeyError as exc:
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED, "Unknown HTTP signature key"
-            ) from exc
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown HTTP signature key") from exc
         except InvalidSignature as exc:
-            raise HTTPException(
-                status.HTTP_401_UNAUTHORIZED, "Invalid HTTP signature"
-            ) from exc
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid HTTP signature") from exc
         except Exception as exc:
             self.logger.warning("Unable to verify HTTP signature", exc_info=exc)
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST, "Unable to verify HTTP signature"
-            ) from exc
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unable to verify HTTP signature") from exc
 
         for result in results:
             try:
@@ -126,17 +106,13 @@ class RequestVerifier:
                 self.logger.debug("Content-Digest verified")
                 return result
             except InvalidContentDigest as exc:
-                raise HTTPException(
-                    status.HTTP_401_UNAUTHORIZED, "Content-Digest verification failed"
-                ) from exc
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Content-Digest verification failed") from exc
             except UnsupportedContentDigestAlgorithm:
                 self.logger.debug("Unsupported Content-Digest algorithm")
             except ContentDigestMissing:
                 self.logger.debug("Content-Digest header missing")
 
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, "Unable to verify Content-Digest"
-        )
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unable to verify Content-Digest")
 
 
 def rfc_3339_datetime_now() -> str:

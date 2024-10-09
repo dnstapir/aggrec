@@ -3,18 +3,11 @@ from typing import Annotated, Tuple, Type
 
 from pydantic import AnyHttpUrl, BaseModel, DirectoryPath, Field, UrlConstraints
 from pydantic_core import Url
-from pydantic_settings import (
-    BaseSettings,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
-    TomlConfigSettingsSource,
-)
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, TomlConfigSettingsSource
 
 MqttUrl = Annotated[
     Url,
-    UrlConstraints(
-        allowed_schemes=["mqtt", "mqtts"], default_port=1883, host_required=True
-    ),
+    UrlConstraints(allowed_schemes=["mqtt", "mqtts"], default_port=1883, host_required=True),
 ]
 
 MongodbUrl = Annotated[

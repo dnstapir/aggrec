@@ -8,12 +8,7 @@ import http_sf
 import pytest
 import requests
 from cryptography.hazmat.primitives.asymmetric import ed25519
-from http_message_signatures import (
-    HTTPMessageSigner,
-    HTTPSignatureAlgorithm,
-    HTTPSignatureKeyResolver,
-    algorithms,
-)
+from http_message_signatures import HTTPMessageSigner, HTTPSignatureAlgorithm, HTTPSignatureKeyResolver, algorithms
 from starlette.datastructures import Headers
 from starlette.requests import Request
 
@@ -60,9 +55,7 @@ class TestHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
             case algorithms.ED25519:
                 self.private_key = ed25519.Ed25519PrivateKey.generate()
             case algorithms.RSA_V1_5_SHA256 | algorithms.RSA_PSS_SHA512:
-                self.private_key = rsa.generate_private_key(
-                    key_size=2048, public_exponent=65537
-                )
+                self.private_key = rsa.generate_private_key(key_size=2048, public_exponent=65537)
             case _:
                 raise ValueError("Unsupported algorithm")
         self.public_key = self.private_key.public_key()
@@ -87,9 +80,7 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
     req = req.prepare()
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = "application/binary"
-    req.headers["Content-Digest"] = http_sf.ser(
-        {"sha-256": hashlib.sha256(req.body).digest()}
-    )
+    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.body).digest()})
 
     key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
     signer = HTTPMessageSigner(signature_algorithm=algorithm, key_resolver=key_resolver)
