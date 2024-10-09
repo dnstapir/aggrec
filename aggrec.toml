@@ -1,0 +1,23 @@
+clients_database = "clients"
+
+metadata_base_url= "http://127.0.0.1:8080"
+
+[s3]
+endpoint_url = "http://localhost:9000"
+bucket = "aggregates"
+create_bucket = true
+access_key_id = "minioadmin"
+secret_access_key = "minioadmin"
+
+[mongodb]
+server =  "mongodb://localhost/aggregates"
+#server = "mongomock://localhost/aggregates"
+
+[mqtt]
+broker = "mqtt://localhost"
+topic = "aggregates"
+
+[otlp]
+spans_endpoint = "http://localhost:4317"
+metrics_endpoint = "http://localhost:4317"
+insecure = true

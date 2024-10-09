@@ -6,9 +6,12 @@ import logging
 import uuid
 from urllib.parse import urljoin
 
-import http_sfv
+import cryptography.hazmat.primitives.asymmetric.ec as ec
+import cryptography.hazmat.primitives.asymmetric.rsa as rsa
+import http_sf
 import pendulum
 import requests
+from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from http_message_signatures import (
     HTTPMessageSigner,
@@ -27,11 +30,21 @@ DEFAULT_COVERED_COMPONENT_IDS = [
 
 class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
     def __init__(self, filename: str) -> None:
-        self.filename = filename
+        with open(filename, "rb") as fh:
+            self.private_key = load_pem_private_key(fh.read(), password=None)
+        if isinstance(self.private_key, ed25519.Ed25519PrivateKey):
+            self.algorithm = algorithms.ED25519
+        elif isinstance(self.private_key, ec.EllipticCurvePrivateKey):
+            if not isinstance(self.private_key.curve, ec.SECP256R1):
+                raise ValueError("Unsupported curve")
+            self.algorithm = algorithms.ECDSA_P256_SHA256
+        elif isinstance(self._private_key, rsa.RSAPrivateKey):
+            self.algorithm = algorithms.RSA_V1_5_SHA256
+        else:
+            raise ValueError("Unsupported algorithm")
 
     def resolve_private_key(self, key_id: str):
-        with open(self.filename, "rb") as fh:
-            return load_pem_private_key(fh.read(), password=None)
+        return self.private_key
 
 
 def main() -> None:
@@ -132,14 +145,14 @@ def main() -> None:
     req = req.prepare()
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
-    req.headers["Content-Digest"] = str(
-        http_sfv.Dictionary({"sha-256": hashlib.sha256(req.body).digest()})
+    req.headers["Content-Digest"] = http_sf.ser(
+        {"sha-256": hashlib.sha256(req.body).digest()}
     )
 
     if args.http_key_id:
         key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
         signer = HTTPMessageSigner(
-            signature_algorithm=algorithms.ECDSA_P256_SHA256, key_resolver=key_resolver
+            signature_algorithm=key_resolver.algorithm, key_resolver=key_resolver
         )
         signer.sign(
             req,
