@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aggrec"
-version = "1.0.0"
+version = "1.1.0.dev1"
 description = "DNS TAPIR Aggregate Receiver"
 authors = ["Jakob Schlyter <jakob@kirei.se>"]
 readme = "README.md"
