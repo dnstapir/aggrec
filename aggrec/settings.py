@@ -48,7 +48,12 @@ class OtlpSettings(BaseModel):
 class RedisSettings(BaseModel):
     host: str = Field(description="Redis hostname")
     port: int = Field(description="Redis port", default=6379)
-    ttl: int = Field(description="Redis cache TTL", default=300)
+
+
+class KeyCacheSettings(BaseModel):
+    size: int = Field(description="Cache size", default=1000)
+    ttl: int = Field(description="Cache TTL", default=300)
+    redis: RedisSettings | None = None
 
 
 class Settings(BaseSettings):
@@ -58,7 +63,7 @@ class Settings(BaseSettings):
     mqtt: MqttSettings = Field(default=MqttSettings())
     mongodb: MongoDB = Field(default=MongoDB())
     otlp: OtlpSettings = Field(default=OtlpSettings())
-    redis: RedisSettings | None = None
+    key_cache: KeyCacheSettings | None = None
 
     model_config = SettingsConfigDict(toml_file="aggrec.toml")
 

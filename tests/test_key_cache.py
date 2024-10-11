@@ -13,7 +13,7 @@ def test_redis_cache():
     )
 
     redis_client = fakeredis.FakeRedis()
-    key_cache = RedisKeyCache(redis_client=redis_client, default_ttl=60)
+    key_cache = RedisKeyCache(redis_client=redis_client, ttl=60)
 
     res = key_cache.get(key_id)
     assert res is None
@@ -31,7 +31,7 @@ def test_memory_cache():
         encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
 
-    key_cache = MemoryKeyCache()
+    key_cache = MemoryKeyCache(size=100, ttl=60)
 
     res = key_cache.get(key_id)
     assert res is None

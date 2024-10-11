@@ -34,6 +34,10 @@ The default configuration file is `aggrec.toml`. Example configuration below:
     metrics_endpoint = "http://localhost:4317"
     insecure = true
 
+    [cache]
+    size = 1000
+    ttl = 300
+
 
 ## API
 

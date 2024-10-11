@@ -70,12 +70,14 @@ class AggrecServer(FastAPI):
             metrics_endpoint=str(settings.otlp.metrics_endpoint),
             insecure=settings.otlp.insecure,
         )
-        if self.settings.redis:
-            redis_client = redis.StrictRedis(host=self.settings.redis.host, port=self.settings.redis.port)
-            self.logger.debug("Using REDIS at %s:%d", self.settings.redis.host, self.settings.redis.port)
-            self.key_cache = RedisKeyCache(redis_client=redis_client, default_ttl=self.settings.redis.ttl)
-        else:
-            self.key_cache = MemoryKeyCache()
+        self.key_cache = None
+        if self.settings.key_cache:
+            if redis_settings := self.settings.key_cache.redis:
+                redis_client = redis.StrictRedis(host=redis_settings.host, port=redis_settings.port)
+                self.logger.debug("Using REDIS at %s:%d", redis_settings.host, redis_settings.port)
+                self.key_cache = RedisKeyCache(redis_client=redis_client, ttl=self.settings.key_cache.ttl)
+            elif self.settings.key_cache.size:
+                self.key_cache = MemoryKeyCache(size=self.settings.key_cache.size, ttl=self.settings.key_cache.ttl)
 
     @staticmethod
     def connect_mongodb(settings: Settings):

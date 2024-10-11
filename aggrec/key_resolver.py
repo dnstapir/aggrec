@@ -10,7 +10,7 @@ from .key_cache import KeyCache
 
 
 class CacheKeyResolver(HTTPSignatureKeyResolver):
-    def __init__(self, key_cache: KeyCache):
+    def __init__(self, key_cache: KeyCache | None):
         self.key_cache = key_cache
 
     @abstractmethod
@@ -18,15 +18,18 @@ class CacheKeyResolver(HTTPSignatureKeyResolver):
         pass
 
     def resolve_public_key(self, key_id: str):
-        public_key_pem = self.key_cache.get(key_id)
-        if not public_key_pem:
+        if self.key_cache:
+            public_key_pem = self.key_cache.get(key_id)
+            if not public_key_pem:
+                public_key_pem = self.get_public_key_pem(key_id)
+                self.key_cache.set(key_id, public_key_pem)
+        else:
             public_key_pem = self.get_public_key_pem(key_id)
-            self.key_cache.set(key_id, public_key_pem)
         return load_pem_public_key(public_key_pem)
 
 
 class FileKeyResolver(CacheKeyResolver):
-    def __init__(self, client_database_directory: str, key_cache: KeyCache):
+    def __init__(self, client_database_directory: str, key_cache: KeyCache | None = None):
         super().__init__(key_cache=key_cache)
         self.client_database_directory = client_database_directory
 
@@ -40,7 +43,7 @@ class FileKeyResolver(CacheKeyResolver):
 
 
 class UrlKeyResolver(CacheKeyResolver):
-    def __init__(self, client_database_base_url: str, key_cache: KeyCache):
+    def __init__(self, client_database_base_url: str, key_cache: KeyCache | None = None):
         super().__init__(key_cache=key_cache)
         self.client_database_base_url = client_database_base_url
         self.httpx_client = httpx.Client()

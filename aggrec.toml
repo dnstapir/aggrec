@@ -23,5 +23,6 @@ spans_endpoint = "http://localhost:4317"
 metrics_endpoint = "http://localhost:4317"
 insecure = true
 
-[redis]
-host = "localhost"
+[key_cache]
+size = 1000
+ttl = 300

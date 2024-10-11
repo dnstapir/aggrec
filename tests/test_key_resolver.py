@@ -2,7 +2,6 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from pytest_httpx import HTTPXMock
 
-from aggrec.key_cache import MemoryKeyCache
 from aggrec.key_resolver import UrlKeyResolver
 
 
@@ -15,7 +14,7 @@ def test_url_key_resolver(httpx_mock: HTTPXMock):
 
     httpx_mock.add_response(url=f"https://keys/{key_id}.pem", content=public_key_pem)
 
-    resolver = UrlKeyResolver(client_database_base_url="https://keys", key_cache=MemoryKeyCache())
+    resolver = UrlKeyResolver(client_database_base_url="https://keys")
 
     res = resolver.resolve_public_key(key_id)
     assert res == public_key
