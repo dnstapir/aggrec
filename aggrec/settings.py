@@ -45,6 +45,12 @@ class OtlpSettings(BaseModel):
     insecure: bool = False
 
 
+class RedisSettings(BaseModel):
+    host: str = Field(description="Redis hostname")
+    port: int = Field(description="Redis port", default=6379)
+    ttl: int = Field(description="Redis cache TTL", default=300)
+
+
 class Settings(BaseSettings):
     metadata_base_url: AnyHttpUrl = Field(default="http://127.0.0.1")
     clients_database: DirectoryPath | AnyHttpUrl = Field(default="clients")
@@ -52,6 +58,7 @@ class Settings(BaseSettings):
     mqtt: MqttSettings = Field(default=MqttSettings())
     mongodb: MongoDB = Field(default=MongoDB())
     otlp: OtlpSettings = Field(default=OtlpSettings())
+    redis: RedisSettings | None = None
 
     model_config = SettingsConfigDict(toml_file="aggrec.toml")
 

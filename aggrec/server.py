@@ -5,6 +5,7 @@ import aiobotocore.session
 import aiomqtt
 import boto3
 import mongoengine
+import redis
 import uvicorn
 from fastapi import FastAPI
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -13,6 +14,7 @@ import aggrec.aggregates
 import aggrec.extras
 
 from . import OPENAPI_METADATA, __verbose_version__
+from .key_cache import NoyKeyCache, RedisKeyCache
 from .logging import JsonFormatter  # noqa
 from .settings import Settings
 from .telemetry import configure_opentelemetry
@@ -68,6 +70,12 @@ class AggrecServer(FastAPI):
             metrics_endpoint=str(settings.otlp.metrics_endpoint),
             insecure=settings.otlp.insecure,
         )
+        if self.settings.redis:
+            redis_client = redis.StrictRedis(host=self.settings.redis.host, port=self.settings.redis.port)
+            self.logger.debug("Using REDIS at %s:%d", self.settings.redis.host, self.settings.redis.port)
+            self.key_cache = RedisKeyCache(redis_client=redis_client, default_ttl=self.settings.redis.ttl)
+        else:
+            self.key_cache = NoyKeyCache()
 
     @staticmethod
     def connect_mongodb(settings: Settings):
