@@ -14,7 +14,7 @@ import aggrec.aggregates
 import aggrec.extras
 
 from . import OPENAPI_METADATA, __verbose_version__
-from .key_cache import MemoryKeyCache, RedisKeyCache
+from .key_cache import KeyCache, MemoryKeyCache, RedisKeyCache
 from .logging import JsonFormatter  # noqa
 from .settings import Settings
 from .telemetry import configure_opentelemetry
@@ -70,7 +70,7 @@ class AggrecServer(FastAPI):
             metrics_endpoint=str(settings.otlp.metrics_endpoint),
             insecure=settings.otlp.insecure,
         )
-        self.key_cache = None
+        self.key_cache: KeyCache | None = None
         if self.settings.key_cache:
             if redis_settings := self.settings.key_cache.redis:
                 redis_client = redis.StrictRedis(host=redis_settings.host, port=redis_settings.port)
