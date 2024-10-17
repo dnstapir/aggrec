@@ -4,6 +4,9 @@ from abc import abstractmethod
 
 import redis
 from expiringdict import ExpiringDict
+from opentelemetry import trace
+
+tracer = trace.get_tracer("aggrec.tracer")
 
 
 class KeyCache:
@@ -34,13 +37,15 @@ class MemoryKeyCache(KeyCache):
         self.logger.info("Configured memory key cache size=%d ttl=%d", size, ttl)
 
     def get(self, key: str) -> bytes | None:
-        res = self.cache.get(key)
+        with tracer.start_as_current_span("memory_key_cache_get"):
+            res = self.cache.get(key)
         self.logger.debug("Cache GET %s (%s)", key, "hit" if res else "miss")
         return res
 
     def set(self, key: str, value: bytes) -> None:
         self.logger.debug("Cache SET %s", key)
-        self.cache[key] = value
+        with tracer.start_as_current_span("memory_key_cache_set"):
+            self.cache[key] = value
 
 
 class RedisKeyCache(KeyCache):
@@ -51,14 +56,16 @@ class RedisKeyCache(KeyCache):
         self.logger.info("Configured Redis key cache ttl=%d", ttl)
 
     def get(self, key: str) -> bytes | None:
-        res = self.redis_client.get(name=key)
+        with tracer.start_as_current_span("redis_key_cache_get"):
+            res = self.redis_client.get(name=key)
         self.logger.debug("Cache GET %s (%s)", key, "hit" if res else "miss")
         return res
 
     def set(self, key: str, value: bytes) -> None:
         self.logger.debug("Cache SET %s", key)
         expires_at = int(time.time()) + self.ttl
-        self.redis_client.set(name=key, value=value, exat=expires_at)
+        with tracer.start_as_current_span("redis_key_cache_set"):
+            self.redis_client.set(name=key, value=value, exat=expires_at)
 
 
 class CombinedKeyCache(KeyCache):
