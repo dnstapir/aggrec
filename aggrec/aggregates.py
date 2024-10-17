@@ -301,7 +301,8 @@ Derived components MUST NOT be included in the signature input.
             )
         logger.info("Object created: %s", metadata.s3_object_key)
 
-    metadata.save()
+    with tracer.start_as_current_span("mongodb.insert"):
+        metadata.save()
     logger.info("Metadata saved: %s", metadata.id)
 
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
