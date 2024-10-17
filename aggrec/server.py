@@ -14,7 +14,7 @@ import aggrec.aggregates
 import aggrec.extras
 
 from . import OPENAPI_METADATA, __verbose_version__
-from .key_cache import KeyCache, MemoryKeyCache, RedisKeyCache
+from .key_cache import KeyCache, MemoryKeyCache, MemoryRedisKeyCache, RedisKeyCache
 from .logging import JsonFormatter  # noqa
 from .settings import Settings
 from .telemetry import configure_opentelemetry
@@ -75,7 +75,14 @@ class AggrecServer(FastAPI):
             if redis_settings := self.settings.key_cache.redis:
                 redis_client = redis.StrictRedis(host=redis_settings.host, port=redis_settings.port)
                 self.logger.debug("Using REDIS at %s:%d", redis_settings.host, redis_settings.port)
-                self.key_cache = RedisKeyCache(redis_client=redis_client, ttl=self.settings.key_cache.ttl)
+                if self.settings.key_cache.size:
+                    self.key_cache = MemoryRedisKeyCache(
+                        redis_client=redis_client,
+                        ttl=self.settings.key_cache.ttl,
+                        size=self.settings.key_cache.size,
+                    )
+                else:
+                    self.key_cache = RedisKeyCache(redis_client=redis_client, ttl=self.settings.key_cache.ttl)
             elif self.settings.key_cache.size:
                 self.key_cache = MemoryKeyCache(size=self.settings.key_cache.size, ttl=self.settings.key_cache.ttl)
 

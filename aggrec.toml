@@ -26,3 +26,6 @@ insecure = true
 [key_cache]
 size = 1000
 ttl = 300
+
+#[key_cache.redis]
+#host = "localhost"
