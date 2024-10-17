@@ -5,6 +5,7 @@ import aiobotocore.session
 import aiomqtt
 import boto3
 import mongoengine
+import redis
 import uvicorn
 from fastapi import FastAPI
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -13,6 +14,7 @@ import aggrec.aggregates
 import aggrec.extras
 
 from . import OPENAPI_METADATA, __verbose_version__
+from .key_cache import CombinedKeyCache, KeyCache, MemoryKeyCache, RedisKeyCache
 from .logging import JsonFormatter  # noqa
 from .settings import Settings
 from .telemetry import configure_opentelemetry
@@ -68,6 +70,19 @@ class AggrecServer(FastAPI):
             metrics_endpoint=str(settings.otlp.metrics_endpoint),
             insecure=settings.otlp.insecure,
         )
+        self.key_cache: KeyCache | None = None
+        if self.settings.key_cache:
+            memory_key_cache = MemoryKeyCache(size=self.settings.key_cache.size, ttl=self.settings.key_cache.ttl)
+            if redis_settings := self.settings.key_cache.redis:
+                redis_client = redis.StrictRedis(host=redis_settings.host, port=redis_settings.port)
+                self.logger.debug("Using REDIS at %s:%d", redis_settings.host, redis_settings.port)
+                redis_key_cache = RedisKeyCache(redis_client=redis_client, ttl=self.settings.key_cache.ttl)
+                if self.settings.key_cache.size:
+                    self.key_cache = CombinedKeyCache([memory_key_cache, redis_key_cache])
+                else:
+                    self.key_cache = redis_key_cache
+            elif self.settings.key_cache.size:
+                self.key_cache = memory_key_cache
 
     @staticmethod
     def connect_mongodb(settings: Settings):

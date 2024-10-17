@@ -19,6 +19,19 @@ services:
       - 127.0.0.1:27017:27017/tcp
     volumes:
       - mongo:/data/db
+  caddy:
+    image: caddy:2
+    ports:
+      - "8081:8081/tcp"
+    volumes:
+      - ./clients:/data/clients:ro,z
+    configs:
+      - source: Caddyfile
+        target: /etc/caddy/Caddyfile
+  valkey:
+    image: valkey/valkey
+    ports:
+      - 6379:6379/tcp
   mosquitto:
     image: eclipse-mosquitto:latest
     restart: unless-stopped
@@ -59,6 +72,16 @@ configs:
     content: |
       listener 1883
       allow_anonymous true
+  Caddyfile:
+    content: |
+      http://localhost:8081 {
+        encode gzip
+        root /data/clients
+        file_server
+        log {
+          output stdout
+        }
+      }
   otel-collector-config.yaml:
     content: |
       receivers:

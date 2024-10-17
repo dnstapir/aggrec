@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 
 import http_sf
 import pendulum
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from fastapi import HTTPException, Request, status
 from http_message_signatures import (
     HTTPMessageVerifier,
@@ -15,23 +14,13 @@ from http_message_signatures import (
 )
 from http_message_signatures.algorithms import signature_algorithms as supported_signature_algorithms
 from http_message_signatures.exceptions import InvalidSignature
-from werkzeug.utils import safe_join
+from pydantic import AnyHttpUrl, DirectoryPath
+
+from .key_cache import KeyCache
+from .key_resolver import FileKeyResolver, UrlKeyResolver
 
 DEFAULT_SIGNATURE_ALGORITHM = algorithms.ECDSA_P256_SHA256
 HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
-
-
-class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
-    def __init__(self, client_database: str):
-        self.client_database = client_database
-
-    def resolve_public_key(self, key_id: str):
-        filename = safe_join(self.client_database, f"{key_id}.pem")
-        try:
-            with open(filename, "rb") as fp:
-                return load_pem_public_key(fp.read())
-        except FileNotFoundError as exc:
-            raise KeyError(key_id) from exc
 
 
 class ContentDigestException(ValueError):
@@ -55,10 +44,20 @@ class RequestVerifier:
         self,
         algorithm: HTTPSignatureAlgorithm | None = None,
         key_resolver: HTTPSignatureKeyResolver | None = None,
-        client_database: str | None = None,
+        client_database: AnyHttpUrl | DirectoryPath | None = None,
+        key_cache: KeyCache | None = None,
     ):
         self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
-        self.key_resolver = MyHTTPSignatureKeyResolver(client_database) if client_database else key_resolver
+        if key_resolver:
+            self.key_resolver = key_resolver
+        elif client_database and (
+            str(client_database).startswith("http://") or str(client_database).startswith("https://")
+        ):
+            self.key_resolver = UrlKeyResolver(client_database_base_url=str(client_database), key_cache=key_cache)
+        elif client_database:
+            self.key_resolver = FileKeyResolver(client_database_directory=str(client_database), key_cache=key_cache)
+        else:
+            raise ValueError("No key resolver nor client database specified")
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     async def verify_content_digest(self, result: VerifyResult, request: Request):
