@@ -2,7 +2,7 @@ import fakeredis
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from aggrec.key_cache import KeyCache, MemoryKeyCache, MemoryRedisKeyCache, RedisKeyCache
+from aggrec.key_cache import CombinedKeyCache, KeyCache, MemoryKeyCache, RedisKeyCache
 
 
 def _test_key_cache(key_cache: KeyCache):
@@ -32,7 +32,10 @@ def test_memory_cache():
     _test_key_cache(key_cache=key_cache)
 
 
-def test_memory_redis_cache():
+def test_memory_stack():
     redis_client = fakeredis.FakeRedis()
-    key_cache = MemoryRedisKeyCache(size=100, ttl=60, redis_client=redis_client)
+    memory_key_cache = MemoryKeyCache(size=100, ttl=60)
+    redis_key_cache = RedisKeyCache(redis_client=redis_client, ttl=60)
+
+    key_cache = CombinedKeyCache([memory_key_cache, redis_key_cache])
     _test_key_cache(key_cache=key_cache)
