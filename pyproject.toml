@@ -35,7 +35,7 @@ expiringdict = "^1.2.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
-ruff = "^0.7.0"
+ruff = "^0.7.2"
 pytest-ruff = "^0.4.1"
 pytest-asyncio = "^0.24.0"
 fakeredis = "^2.25.1"
