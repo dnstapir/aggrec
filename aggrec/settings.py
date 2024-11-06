@@ -5,6 +5,8 @@ from pydantic import AnyHttpUrl, BaseModel, DirectoryPath, Field, UrlConstraints
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, TomlConfigSettingsSource
 
+from dnstapir.key_cache import KeyCacheSettings
+
 MqttUrl = Annotated[
     Url,
     UrlConstraints(allowed_schemes=["mqtt", "mqtts"], default_port=1883, host_required=True),
@@ -43,17 +45,6 @@ class OtlpSettings(BaseModel):
     spans_endpoint: AnyHttpUrl | None = None
     metrics_endpoint: AnyHttpUrl | None = None
     insecure: bool = False
-
-
-class RedisSettings(BaseModel):
-    host: str = Field(description="Redis hostname")
-    port: int = Field(description="Redis port", default=6379)
-
-
-class KeyCacheSettings(BaseModel):
-    size: int = Field(description="Cache size", default=1000)
-    ttl: int = Field(description="Cache TTL", default=300)
-    redis: RedisSettings | None = None
 
 
 class Settings(BaseSettings):

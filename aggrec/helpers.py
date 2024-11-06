@@ -14,10 +14,8 @@ from http_message_signatures import (
 )
 from http_message_signatures.algorithms import signature_algorithms as supported_signature_algorithms
 from http_message_signatures.exceptions import InvalidSignature
-from pydantic import AnyHttpUrl, DirectoryPath
 
-from .key_cache import KeyCache
-from .key_resolver import FileKeyResolver, UrlKeyResolver
+from dnstapir.key_resolver import KeyResolver, PublicKey
 
 DEFAULT_SIGNATURE_ALGORITHM = algorithms.ECDSA_P256_SHA256
 HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
@@ -39,25 +37,22 @@ class ContentDigestMissing(ContentDigestException):
     pass
 
 
+class CustomHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
+    def __init__(self, key_resolver: KeyResolver):
+        self.key_resolver = key_resolver
+
+    def resolve_public_key(self, key_id: str) -> PublicKey:
+        return self.key_resolver.resolve_public_key(key_id=key_id)
+
+
 class RequestVerifier:
     def __init__(
         self,
+        key_resolver: KeyResolver,
         algorithm: HTTPSignatureAlgorithm | None = None,
-        key_resolver: HTTPSignatureKeyResolver | None = None,
-        client_database: AnyHttpUrl | DirectoryPath | None = None,
-        key_cache: KeyCache | None = None,
     ):
         self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
-        if key_resolver:
-            self.key_resolver = key_resolver
-        elif client_database and (
-            str(client_database).startswith("http://") or str(client_database).startswith("https://")
-        ):
-            self.key_resolver = UrlKeyResolver(client_database_base_url=str(client_database), key_cache=key_cache)
-        elif client_database:
-            self.key_resolver = FileKeyResolver(client_database_directory=str(client_database), key_cache=key_cache)
-        else:
-            raise ValueError("No key resolver nor client database specified")
+        self.http_key_resolver = CustomHTTPSignatureKeyResolver(key_resolver)
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     async def verify_content_digest(self, result: VerifyResult, request: Request):
@@ -87,7 +82,7 @@ class RequestVerifier:
         signature_algorithm = supported_signature_algorithms[alg]
         verifier = HTTPMessageVerifier(
             signature_algorithm=signature_algorithm,
-            key_resolver=self.key_resolver,
+            key_resolver=self.http_key_resolver,
         )
         try:
             results = verifier.verify(request)
