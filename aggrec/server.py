@@ -30,13 +30,11 @@ class AggrecServer(FastAPI):
         self.add_middleware(ProxyHeadersMiddleware)
         self.include_router(aggrec.aggregates.router)
         self.include_router(aggrec.extras.router)
-        if otlp := self.settings.otlp:
+        if self.settings.otlp:
             configure_opentelemetry(
-                fastapi_app=self,
                 service_name="aggrec",
-                spans_endpoint=str(otlp.spans_endpoint),
-                metrics_endpoint=str(otlp.metrics_endpoint),
-                insecure=otlp.insecure,
+                settings=self.settings.otlp,
+                fastapi_app=self,
             )
         else:
             self.logger.info("Configured without OpenTelemetry")

@@ -6,6 +6,7 @@ from pydantic_core import Url
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, TomlConfigSettingsSource
 
 from dnstapir.key_cache import KeyCacheSettings
+from dnstapir.opentelemetry import OtlpSettings
 
 MqttUrl = Annotated[
     Url,
@@ -39,12 +40,6 @@ class S3(BaseModel):
 
     def get_bucket_name(self) -> str:
         return datetime.now(tz=timezone.utc).strftime(self.bucket)
-
-
-class OtlpSettings(BaseModel):
-    spans_endpoint: AnyHttpUrl | None = None
-    metrics_endpoint: AnyHttpUrl | None = None
-    insecure: bool = False
 
 
 class Settings(BaseSettings):
