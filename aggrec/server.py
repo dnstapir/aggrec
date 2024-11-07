@@ -14,7 +14,7 @@ import aggrec.extras
 from dnstapir.key_cache import key_cache_from_settings
 from dnstapir.key_resolver import key_resolver_from_client_database
 from dnstapir.logging import configure_json_logging
-from dnstapir.telemetry import configure_opentelemetry
+from dnstapir.opentelemetry import configure_opentelemetry
 
 from . import OPENAPI_METADATA, __verbose_version__
 from .settings import Settings
@@ -31,7 +31,7 @@ class AggrecServer(FastAPI):
         self.include_router(aggrec.aggregates.router)
         self.include_router(aggrec.extras.router)
         configure_opentelemetry(
-            self,
+            fastapi_app=self,
             service_name="aggrec",
             spans_endpoint=str(settings.otlp.spans_endpoint),
             metrics_endpoint=str(settings.otlp.metrics_endpoint),

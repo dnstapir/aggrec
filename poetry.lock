@@ -61,17 +61,17 @@ tests = ["mypy (>=0.800)", "pytest", "pytest-asyncio"]
 
 [[package]]
 name = "boto3"
-version = "1.35.54"
+version = "1.35.55"
 description = "The AWS SDK for Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "boto3-1.35.54-py3-none-any.whl", hash = "sha256:2d5e160b614db55fbee7981001c54476cb827c441cef65b2fcb2c52a62019909"},
-    {file = "boto3-1.35.54.tar.gz", hash = "sha256:7d9c359bbbc858a60b51c86328db813353c8bd1940212cdbd0a7da835291c2e1"},
+    {file = "boto3-1.35.55-py3-none-any.whl", hash = "sha256:c7a0a0bc5ae3bed5d38e8bfe5a56b31621e79bdd7c1ea6e5ba4326d820cde3a5"},
+    {file = "boto3-1.35.55.tar.gz", hash = "sha256:82fa8cdb00731aeffe7a5829821ae78d75c7ae959b638c15ff3b4681192ace90"},
 ]
 
 [package.dependencies]
-botocore = ">=1.35.54,<1.36.0"
+botocore = ">=1.35.55,<1.36.0"
 jmespath = ">=0.7.1,<2.0.0"
 s3transfer = ">=0.10.0,<0.11.0"
 
@@ -80,13 +80,13 @@ crt = ["botocore[crt] (>=1.21.0,<2.0a0)"]
 
 [[package]]
 name = "botocore"
-version = "1.35.54"
+version = "1.35.55"
 description = "Low-level, data-driven core of boto 3."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "botocore-1.35.54-py3-none-any.whl", hash = "sha256:9cca1811094b6cdc144c2c063a3ec2db6d7c88194b04d4277cd34fc8e3473aff"},
-    {file = "botocore-1.35.54.tar.gz", hash = "sha256:131bb59ce59c8a939b31e8e647242d70cf11d32d4529fa4dca01feea1e891a76"},
+    {file = "botocore-1.35.55-py3-none-any.whl", hash = "sha256:3d54739e498534c9d7a6e9732ae2d17ed29c7d5e29fe36c956d8488b859538b0"},
+    {file = "botocore-1.35.55.tar.gz", hash = "sha256:61ae18f688250372d7b6046e35c86f8fd09a7c0f0064b52688f3490b4d6c9d6b"},
 ]
 
 [package.dependencies]
@@ -424,37 +424,41 @@ develop = false
 [package.dependencies]
 botocore = "^1.35.45"
 cryptography = "^43.0.3"
-expiringdict = "^1.2.2"
+faas-cache-dict = "^0.5.0"
 fastapi = "^0.115.2"
 httpx = "^0.27.2"
 jsonformatter = "^0.3.2"
-opentelemetry-exporter-otlp = "^1.27.0"
-opentelemetry-instrumentation-botocore = "^0.48b0"
-opentelemetry-instrumentation-fastapi = "^0.48b0"
-opentelemetry-instrumentation-pymongo = "^0.48b0"
+opentelemetry-exporter-otlp = {version = "^1.27.0", optional = true}
+opentelemetry-instrumentation-botocore = {version = "^0.48b0", optional = true}
+opentelemetry-instrumentation-fastapi = {version = "^0.48b0", optional = true}
+opentelemetry-instrumentation-pymongo = {version = "^0.48b0", optional = true}
+opentelemetry-instrumentation-redis = {version = ">=0.48b0", optional = true}
 pydantic = "^2.9.2"
 pymongo = "^4.10.1"
 redis = "^5.1.1"
+
+[package.extras]
+opentelemetry = ["opentelemetry-exporter-otlp (>=1.27.0,<2.0.0)", "opentelemetry-instrumentation-botocore (>=0.48b0,<0.49)", "opentelemetry-instrumentation-fastapi (>=0.48b0,<0.49)", "opentelemetry-instrumentation-pymongo (>=0.48b0,<0.49)", "opentelemetry-instrumentation-redis (>=0.48b0)"]
 
 [package.source]
 type = "git"
 url = "https://github.com/dnstapir/python-dnstapir.git"
 reference = "main"
-resolved_reference = "65223b18fa9a3e33d30a2f4216a55e50aa93a5d2"
+resolved_reference = "1a95fdd1287d00ff127874145e6d9bc64678a46b"
 
 [[package]]
-name = "expiringdict"
-version = "1.2.2"
-description = "Dictionary with auto-expiring values for caching purposes"
+name = "faas-cache-dict"
+version = "0.5.0"
+description = "A Python dictionary implementation designed to act as an in-memory cache for FaaS environments"
 optional = false
-python-versions = "*"
+python-versions = ">=3.8"
 files = [
-    {file = "expiringdict-1.2.2-py3-none-any.whl", hash = "sha256:09a5d20bc361163e6432a874edd3179676e935eb81b925eccef48d409a8a45e8"},
-    {file = "expiringdict-1.2.2.tar.gz", hash = "sha256:300fb92a7e98f15b05cf9a856c1415b3bc4f2e132be07daa326da6414c23ee09"},
+    {file = "faas_cache_dict-0.5.0-py3-none-any.whl", hash = "sha256:13182c746f9676d6182975f5a8735fccb1e94caa6aaeed761eda4fd32b0a4b65"},
 ]
 
-[package.extras]
-tests = ["coverage", "coveralls", "dill", "mock", "nose"]
+[package.dependencies]
+filelock = "3.13.1"
+objsize = "0.7.0"
 
 [[package]]
 name = "fakeredis"
@@ -497,6 +501,22 @@ typing-extensions = ">=4.8.0"
 [package.extras]
 all = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.5)", "httpx (>=0.23.0)", "itsdangerous (>=1.1.0)", "jinja2 (>=2.11.2)", "orjson (>=3.2.1)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.7)", "pyyaml (>=5.3.1)", "ujson (>=4.0.1,!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0)", "uvicorn[standard] (>=0.12.0)"]
 standard = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.5)", "httpx (>=0.23.0)", "jinja2 (>=2.11.2)", "python-multipart (>=0.0.7)", "uvicorn[standard] (>=0.12.0)"]
+
+[[package]]
+name = "filelock"
+version = "3.13.1"
+description = "A platform independent file lock."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "filelock-3.13.1-py3-none-any.whl", hash = "sha256:57dbda9b35157b05fb3e58ee91448612eb674172fab98ee235ccb0b5bee19a1c"},
+    {file = "filelock-3.13.1.tar.gz", hash = "sha256:521f5f56c50f8426f5e03ad3b281b490a87ef15bc6c526f168290f0c7148d44e"},
+]
+
+[package.extras]
+docs = ["furo (>=2023.9.10)", "sphinx (>=7.2.6)", "sphinx-autodoc-typehints (>=1.24)"]
+testing = ["covdefaults (>=2.3)", "coverage (>=7.3.2)", "diff-cover (>=8)", "pytest (>=7.4.3)", "pytest-cov (>=4.1)", "pytest-mock (>=3.12)", "pytest-timeout (>=2.2)"]
+typing = ["typing-extensions (>=4.8)"]
 
 [[package]]
 name = "googleapis-common-protos"
@@ -844,6 +864,21 @@ pymongo = ">=3.4,<5.0"
 test = ["Pillow (>=7.0.0)", "blinker", "coverage", "pytest", "pytest-cov"]
 
 [[package]]
+name = "objsize"
+version = "0.7.0"
+description = "Traversal over Python's objects subtree and calculate the total size of the subtree in bytes (deep size)."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "objsize-0.7.0-py3-none-any.whl", hash = "sha256:a8b03ce87477c649a99e6b1920f4eeb8b9ba3f8bc2a94d0e5c06ef68adc334a7"},
+    {file = "objsize-0.7.0.tar.gz", hash = "sha256:d66bbb2a4341803caba84894b5753f9b065ebe1cbf50fd186ae438dfc1ca4729"},
+]
+
+[package.extras]
+dev = ["black", "bumpver", "coveralls", "flake8", "isort", "mypy", "pip-tools", "pylint", "pytest", "pytest-cov", "pyyaml"]
+docs = ["myst-parser", "sphinx", "sphinx-markdown-builder (>=0.6.0)", "sphinx-rtd-dark-mode", "sphinx-rtd-theme"]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.27.0"
 description = "OpenTelemetry Python API"
@@ -1023,6 +1058,26 @@ opentelemetry-semantic-conventions = "0.48b0"
 
 [package.extras]
 instruments = ["pymongo (>=3.1,<5.0)"]
+
+[[package]]
+name = "opentelemetry-instrumentation-redis"
+version = "0.48b0"
+description = "OpenTelemetry Redis instrumentation"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "opentelemetry_instrumentation_redis-0.48b0-py3-none-any.whl", hash = "sha256:48c7f2e25cbb30bde749dc0d8b9c74c404c851f554af832956b9630b27f5bcb7"},
+    {file = "opentelemetry_instrumentation_redis-0.48b0.tar.gz", hash = "sha256:61e33e984b4120e1b980d9fba6e9f7ca0c8d972f9970654d8f6e9f27fa115a8c"},
+]
+
+[package.dependencies]
+opentelemetry-api = ">=1.12,<2.0"
+opentelemetry-instrumentation = "0.48b0"
+opentelemetry-semantic-conventions = "0.48b0"
+wrapt = ">=1.12.1"
+
+[package.extras]
+instruments = ["redis (>=2.6)"]
 
 [[package]]
 name = "opentelemetry-propagator-aws-xray"
@@ -1975,4 +2030,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "5b438f59b6e52da603274ba8dba9bf262a8d48a217d759dcea1bf02a7aaa0f0e"
+content-hash = "41b4cc40887cffadcad587f60297c88885c469eeb384fe5a7b48e41f0e828b7f"
