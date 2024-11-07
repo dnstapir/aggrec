@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     s3: S3 = Field(default=S3())
     mqtt: MqttSettings = Field(default=MqttSettings())
     mongodb: MongoDB = Field(default=MongoDB())
-    otlp: OtlpSettings = Field(default=OtlpSettings())
+    otlp: OtlpSettings | None = None
     key_cache: KeyCacheSettings | None = None
 
     model_config = SettingsConfigDict(toml_file="aggrec.toml")
