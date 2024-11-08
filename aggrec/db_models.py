@@ -9,7 +9,10 @@ class AggregateType(Enum):
 
 
 class AggregateMetadata(Document):
-    meta = {"collection": "aggregates"}
+    meta = {
+        "collection": "aggregates",
+        "indexes": [{"fields": ["content_digest"], "unique": True, "sparse": True}],
+    }
 
     creator = StringField()
 
@@ -19,6 +22,7 @@ class AggregateMetadata(Document):
 
     content_type = StringField()
     content_length = IntField()
+    content_digest = StringField()
 
     s3_bucket = StringField()
     s3_object_key = StringField()

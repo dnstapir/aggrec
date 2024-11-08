@@ -33,6 +33,10 @@ test-client: test-client-p256 test-client-ed25519
 test-client-p256: test-private-p256.pem
 	openssl rand 1024 > random.bin
 	poetry run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
+	openssl rand 1024 > random.bin
+	poetry run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
+	poetry run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
+	poetry run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
 
 test-client-ed25519: test-private-ed25519.pem
 	openssl rand 1024 > random.bin
