@@ -5,54 +5,21 @@ import aiobotocore.session
 import aiomqtt
 import boto3
 import mongoengine
-import redis
 import uvicorn
 from fastapi import FastAPI
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 import aggrec.aggregates
 import aggrec.extras
+from dnstapir.key_cache import key_cache_from_settings
+from dnstapir.key_resolver import key_resolver_from_client_database
+from dnstapir.logging import configure_json_logging
+from dnstapir.opentelemetry import configure_opentelemetry
 
 from . import OPENAPI_METADATA, __verbose_version__
-from .key_cache import CombinedKeyCache, KeyCache, MemoryKeyCache, RedisKeyCache
-from .logging import JsonFormatter  # noqa
 from .settings import Settings
-from .telemetry import configure_opentelemetry
 
 logger = logging.getLogger(__name__)
-
-LOGGING_RECORD_CUSTOM_FORMAT = {
-    "time": "asctime",
-    # "Created": "created",
-    # "RelativeCreated": "relativeCreated",
-    "name": "name",
-    # "Levelno": "levelno",
-    "levelname": "levelname",
-    "process": "process",
-    "thread": "thread",
-    # "threadName": "threadName",
-    # "Pathname": "pathname",
-    # "Filename": "filename",
-    # "Module": "module",
-    # "Lineno": "lineno",
-    # "FuncName": "funcName",
-    "message": "message",
-}
-
-LOGGING_CONFIG_JSON = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "json": {
-            "class": "aggrec.logging.JsonFormatter",
-            "format": LOGGING_RECORD_CUSTOM_FORMAT,
-        },
-    },
-    "handlers": {
-        "json": {"class": "logging.StreamHandler", "formatter": "json"},
-    },
-    "root": {"handlers": ["json"], "level": "DEBUG"},
-}
 
 
 class AggrecServer(FastAPI):
@@ -63,26 +30,18 @@ class AggrecServer(FastAPI):
         self.add_middleware(ProxyHeadersMiddleware)
         self.include_router(aggrec.aggregates.router)
         self.include_router(aggrec.extras.router)
-        configure_opentelemetry(
-            self,
-            service_name="aggrec",
-            spans_endpoint=str(settings.otlp.spans_endpoint),
-            metrics_endpoint=str(settings.otlp.metrics_endpoint),
-            insecure=settings.otlp.insecure,
+        if self.settings.otlp:
+            configure_opentelemetry(
+                service_name="aggrec",
+                settings=self.settings.otlp,
+                fastapi_app=self,
+            )
+        else:
+            self.logger.info("Configured without OpenTelemetry")
+        key_cache = key_cache_from_settings(self.settings.key_cache) if self.settings.key_cache else None
+        self.key_resolver = key_resolver_from_client_database(
+            client_database=str(self.settings.clients_database), key_cache=key_cache
         )
-        self.key_cache: KeyCache | None = None
-        if self.settings.key_cache:
-            memory_key_cache = MemoryKeyCache(size=self.settings.key_cache.size, ttl=self.settings.key_cache.ttl)
-            if redis_settings := self.settings.key_cache.redis:
-                redis_client = redis.StrictRedis(host=redis_settings.host, port=redis_settings.port)
-                self.logger.debug("Using REDIS at %s:%d", redis_settings.host, redis_settings.port)
-                redis_key_cache = RedisKeyCache(redis_client=redis_client, ttl=self.settings.key_cache.ttl)
-                if self.settings.key_cache.size:
-                    self.key_cache = CombinedKeyCache([memory_key_cache, redis_key_cache])
-                else:
-                    self.key_cache = redis_key_cache
-            elif self.settings.key_cache.size:
-                self.key_cache = memory_key_cache
 
     @staticmethod
     def connect_mongodb(settings: Settings):
@@ -143,8 +102,7 @@ def main() -> None:
         print(f"Aggregate Receiver version {__verbose_version__}")
         return
 
-    logging_config = LOGGING_CONFIG_JSON
-    logging.config.dictConfig(logging_config)
+    logging_config = configure_json_logging()
 
     if args.debug:
         logging.basicConfig(level=logging.DEBUG)

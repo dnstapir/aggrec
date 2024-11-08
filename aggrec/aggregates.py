@@ -238,9 +238,7 @@ Derived components MUST NOT be included in the signature input.
     span = trace.get_current_span()
 
     with tracer.start_as_current_span("http_request_verifier"):
-        http_request_verifier = RequestVerifier(
-            client_database=request.app.settings.clients_database, key_cache=request.app.key_cache
-        )
+        http_request_verifier = RequestVerifier(key_resolver=request.app.key_resolver)
         res = await http_request_verifier.verify(request)
 
     creator = res.parameters.get("keyid")
