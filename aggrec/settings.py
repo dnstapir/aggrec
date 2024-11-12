@@ -29,6 +29,7 @@ class MqttSettings(BaseModel):
 
 class MongoDB(BaseModel):
     server: MongodbUrl | None = Field(default="mongodb://localhost/aggregates")
+    timeout: int = Field(default=5)
 
 
 class S3(BaseModel):

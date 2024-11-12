@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 
 import bson
 import pendulum
+import pymongo
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
@@ -299,9 +300,15 @@ Derived components MUST NOT be included in the signature input.
             )
         logger.info("Object created: %s", metadata.s3_object_key)
 
-    with tracer.start_as_current_span("mongodb.insert"):
-        metadata.save()
-    logger.info("Metadata saved: %s", metadata.id)
+        with tracer.start_as_current_span("mongodb.insert"):
+            try:
+                with pymongo.timeout(2):
+                    metadata.save(request.app.settings.mongodb.timeout)
+                logger.info("Metadata saved: %s", metadata.id)
+            except Exception as exc:
+                logger.error("Failed to save metadata, deleting object %s", metadata.s3_object_key, exc_info=exc)
+                await s3_client.delete_object(Bucket=s3_bucket, Key=metadata.s3_object_key)
+                raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Database error") from exc
 
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
 
