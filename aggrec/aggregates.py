@@ -308,7 +308,7 @@ Derived components MUST NOT be included in the signature input.
             except Exception as exc:
                 logger.error("Failed to save metadata, deleting object %s", metadata.s3_object_key, exc_info=exc)
                 await s3_client.delete_object(Bucket=s3_bucket, Key=metadata.s3_object_key)
-                raise HTTPException(status.HTTP_502_BAD_GATEWAY, "Database error") from exc
+                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Database error") from exc
 
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
 
