@@ -32,6 +32,16 @@ aggregates_counter = meter.create_counter(
     description="The number of aggregates stored",
 )
 
+aggregates_by_creator_counter = meter.create_counter(
+    "aggregates.counter_by_creator",
+    description="The number of aggregates per creator",
+)
+
+aggregates_duplicates_counter = meter.create_counter(
+    "aggregates.duplicates_counter",
+    description="The number of duplicate aggregates received",
+)
+
 
 METADATA_HTTP_HEADERS = [
     "User-Agent",
@@ -106,6 +116,11 @@ def get_http_headers(request: Request, covered_components_headers: List[str]) ->
         if value := request.headers.get(header):
             res[header] = value
     return res
+
+
+def get_aggregate_location(aggregate_id: ObjectId) -> str:
+    """Get aggregate location"""
+    return f"/api/v1/aggregates/{aggregate_id}"
 
 
 def get_new_aggregate_event_message(metadata: AggregateMetadata, settings: Settings) -> dict:
@@ -247,8 +262,15 @@ Derived components MUST NOT be included in the signature input.
 
     http_headers = get_http_headers(request, res.covered_components.keys())
 
+    # if we receive an aggregate already seen, return existing metadata
+    if metadata := AggregateMetadata.objects(content_digest=content_digest).first():
+        logger.warning("Received duplicate aggregate from %s", creator)
+        aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
+        metadata_location = get_aggregate_location(metadata.id)
+        return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
+
     aggregate_id = ObjectId()
-    location = f"/api/v1/aggregates/{aggregate_id}"
+    metadata_location = get_aggregate_location(aggregate_id)
 
     span.set_attribute("aggregate.id", str(aggregate_id))
     span.set_attribute("aggregate.type", aggregate_type.value)
@@ -274,6 +296,7 @@ Derived components MUST NOT be included in the signature input.
         creator=creator,
         http_headers=http_headers,
         content_type=content_type,
+        content_digest=content_digest,
         s3_bucket=s3_bucket,
     )
 
@@ -311,6 +334,7 @@ Derived components MUST NOT be included in the signature input.
                 raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Database error") from exc
 
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
+    aggregates_by_creator_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
 
     async with request.app.get_mqtt_client() as mqtt_client:
         with tracer.start_as_current_span("mqtt.publish"):
@@ -319,7 +343,7 @@ Derived components MUST NOT be included in the signature input.
                 json.dumps(get_new_aggregate_event_message(metadata, request.app.settings)),
             )
 
-    return Response(status_code=status.HTTP_201_CREATED, headers={"Location": location})
+    return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
 
 
 @router.get(
@@ -379,7 +403,7 @@ async def get_aggregate_payload(
             async with request.app.get_s3_client() as s3_client:
                 s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
 
-        metadata_location = f"/api/v1/aggregates/{aggregate_id}"
+        metadata_location = get_aggregate_location(metadata.id)
 
         return StreamingResponse(
             content=s3_obj["Body"],
