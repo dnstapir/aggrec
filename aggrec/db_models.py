@@ -19,6 +19,7 @@ class AggregateMetadata(Document):
 
     content_type = StringField()
     content_length = IntField()
+    content_digest = StringField(unique=True, sparse=True)
 
     s3_bucket = StringField()
     s3_object_key = StringField()
