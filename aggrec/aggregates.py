@@ -10,12 +10,12 @@ from urllib.parse import urljoin
 import bson
 import pendulum
 import pymongo
+from aiomqtt.exceptions import MqttError
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from opentelemetry import metrics, trace
 from pydantic import BaseModel, Field
-from aiomqtt.exceptions import MqttError
 
 from aggrec.helpers import RequestVerifier
 
