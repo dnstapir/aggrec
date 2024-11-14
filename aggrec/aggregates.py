@@ -15,6 +15,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from opentelemetry import metrics, trace
 from pydantic import BaseModel, Field
+from aiomqtt.exceptions import MqttError
 
 from aggrec.helpers import RequestVerifier
 
@@ -336,12 +337,15 @@ Derived components MUST NOT be included in the signature input.
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
     aggregates_by_creator_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
 
-    async with request.app.get_mqtt_client() as mqtt_client:
-        with tracer.start_as_current_span("mqtt.publish"):
-            await mqtt_client.publish(
-                request.app.settings.mqtt.topic,
-                json.dumps(get_new_aggregate_event_message(metadata, request.app.settings)),
-            )
+    try:
+        async with request.app.get_mqtt_client() as mqtt_client:
+            with tracer.start_as_current_span("mqtt.publish"):
+                await mqtt_client.publish(
+                    request.app.settings.mqtt.topic,
+                    json.dumps(get_new_aggregate_event_message(metadata, request.app.settings)),
+                )
+    except MqttError:
+        logger.warning("Failed to publish new aggregate to MQTT")
 
     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
 
