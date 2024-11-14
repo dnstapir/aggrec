@@ -25,6 +25,7 @@ class MqttSettings(BaseModel):
     password: str | None = None
     topic: str = Field(default="aggregates")
     reconnect_interval: int = Field(default=5)
+    queue_size: int = Field(default=1024)
 
 
 class MongoDB(BaseModel):

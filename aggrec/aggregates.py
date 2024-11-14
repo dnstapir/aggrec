@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import re
@@ -10,7 +11,6 @@ from urllib.parse import urljoin
 import bson
 import pendulum
 import pymongo
-from aiomqtt.exceptions import MqttError
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
@@ -338,14 +338,11 @@ Derived components MUST NOT be included in the signature input.
     aggregates_by_creator_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
 
     try:
-        async with request.app.get_mqtt_client() as mqtt_client:
-            with tracer.start_as_current_span("mqtt.publish"):
-                await mqtt_client.publish(
-                    request.app.settings.mqtt.topic,
-                    json.dumps(get_new_aggregate_event_message(metadata, request.app.settings)),
-                )
-    except MqttError:
-        logger.warning("Failed to publish new aggregate to MQTT")
+        request.app.mqtt_new_aggregate_messages.put_nowait(
+            json.dumps(get_new_aggregate_event_message(metadata, request.app.settings))
+        )
+    except asyncio.QueueFull:
+        logger.warning("MQTT queue full, message dropped")
 
     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
 
