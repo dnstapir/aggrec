@@ -111,7 +111,7 @@ class AggrecServer(FastAPI):
 
     @staticmethod
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
+    async def lifespan(app: "AggrecServer"):
         app.logger.debug("Lifespan startup")
         app.connect_mongodb()
         tasks = []
