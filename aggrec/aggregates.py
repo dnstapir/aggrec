@@ -43,6 +43,11 @@ aggregates_duplicates_counter = meter.create_counter(
     description="The number of duplicate aggregates received",
 )
 
+aggregates_mqtt_queue_drops = meter.create_counter(
+    "aggregates.mqtt_queue_drops",
+    description="MQTT messages dropped due to full queue",
+)
+
 
 METADATA_HTTP_HEADERS = [
     "User-Agent",
@@ -342,6 +347,7 @@ Derived components MUST NOT be included in the signature input.
             json.dumps(get_new_aggregate_event_message(metadata, request.app.settings))
         )
     except asyncio.QueueFull:
+        aggregates_mqtt_queue_drops.add(1)
         logger.warning("MQTT queue full, message dropped")
 
     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
