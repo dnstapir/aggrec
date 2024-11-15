@@ -120,6 +120,7 @@ class AggrecServer(FastAPI):
         yield
         for task in tasks:
             task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
         logger.debug("All background tasks cancelled")
         app.logger.debug("Lifespan ended")
 
