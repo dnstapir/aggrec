@@ -1,12 +1,16 @@
 import argparse
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 
 import aiobotocore.session
 import aiomqtt
 import boto3
 import mongoengine
 import uvicorn
+from aiomqtt.exceptions import MqttError
 from fastapi import FastAPI
+from opentelemetry import trace
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 import aggrec.aggregates
@@ -21,12 +25,14 @@ from .settings import Settings
 
 logger = logging.getLogger(__name__)
 
+tracer = trace.get_tracer("aggrec.tracer")
+
 
 class AggrecServer(FastAPI):
     def __init__(self, settings: Settings):
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self.settings = settings
-        super().__init__(**OPENAPI_METADATA)
+        super().__init__(**OPENAPI_METADATA, lifespan=self.lifespan)
         self.add_middleware(ProxyHeadersMiddleware)
         self.include_router(aggrec.aggregates.router)
         self.include_router(aggrec.extras.router)
@@ -42,18 +48,19 @@ class AggrecServer(FastAPI):
         self.key_resolver = key_resolver_from_client_database(
             client_database=str(self.settings.clients_database), key_cache=key_cache
         )
+        self.mqtt_new_aggregate_messages = asyncio.Queue(maxsize=self.settings.mqtt.queue_size)
 
-    @staticmethod
-    def connect_mongodb(settings: Settings):
-        if mongodb_host := str(settings.mongodb.server):
+    def connect_mongodb(self):
+        if mongodb_host := str(self.settings.mongodb.server):
             params = {"host": mongodb_host}
             if "host" in params and params["host"].startswith("mongomock://"):
                 import mongomock
 
                 params["host"] = params["host"].replace("mongomock://", "mongodb://")
                 params["mongo_client_class"] = mongomock.MongoClient
-            logger.info("Mongoengine connect %s", params)
+            logger.info("Connecting to MongoDB %s", params)
             mongoengine.connect(**params, tz_aware=True)
+            logger.info("MongoDB connected")
 
     def get_mqtt_client(self) -> aiomqtt.Client:
         client = aiomqtt.Client(
@@ -78,12 +85,44 @@ class AggrecServer(FastAPI):
         self.logger.debug("Created S3 client %s", client)
         return client
 
-    @classmethod
-    def factory(cls):
-        logger.info("Starting Aggregate Receiver version %s", __verbose_version__)
-        app = cls(settings=Settings())
-        app.connect_mongodb(app.settings)
-        return app
+    async def mqtt_publisher(self):
+        """Task for publishing enqueued MQTT messages"""
+        _logger = self.logger.getChild("mqtt_publisher")
+        _logger.debug("Starting MQTT publish task")
+        while True:
+            try:
+                async with self.get_mqtt_client() as mqtt_client:
+                    _logger.info("Connected to MQTT broker")
+                    while True:
+                        message = await self.mqtt_new_aggregate_messages.get()
+                        _logger.debug("Publishing new aggregate message on %s", self.settings.mqtt.topic)
+                        with tracer.start_as_current_span("mqtt.publish"):
+                            await mqtt_client.publish(
+                                self.settings.mqtt.topic,
+                                message,
+                            )
+            except MqttError as exc:
+                _logger.error("MQTT error: %s", str(exc))
+            except asyncio.exceptions.CancelledError:
+                _logger.debug("MQTT publish task cancelled")
+                return
+            _logger.info("Reconnecting to MQTT broker in %d seconds", self.settings.mqtt.reconnect_interval)
+            await asyncio.sleep(self.settings.mqtt.reconnect_interval)
+
+    @staticmethod
+    @asynccontextmanager
+    async def lifespan(app: "AggrecServer"):
+        app.logger.debug("Lifespan startup")
+        app.connect_mongodb()
+        tasks = []
+        tasks.append(asyncio.create_task(app.mqtt_publisher()))
+        logger.debug("Background tasks started")
+        yield
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        logger.debug("All background tasks cancelled")
+        app.logger.debug("Lifespan ended")
 
 
 def main() -> None:
@@ -111,7 +150,8 @@ def main() -> None:
         logging.basicConfig(level=logging.INFO)
         log_level = "info"
 
-    app = AggrecServer.factory()
+    logger.info("Starting Aggregate Receiver version %s", __verbose_version__)
+    app = AggrecServer(settings=Settings())
 
     uvicorn.run(
         app,
