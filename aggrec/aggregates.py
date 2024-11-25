@@ -68,8 +68,8 @@ class AggregateContentType(str, Enum):
 
 
 class AggregateMetadataResponse(BaseModel):
-    aggregate_id: str = Field(title="Aggregate identifier")
-    aggregate_type: AggregateType = Field(title="Aggregate type")
+    aggregate_id: str = Field(title="Aggregate identifier", example="3b241101-e2bb-4255-8caf-4136c566a962")
+    aggregate_type: AggregateType = Field(title="Aggregate type", example="application/vnd.apache.parquet")
     created: datetime = Field(title="Aggregate creation timestamp")
     creator: str = Field(title="Aggregate creator")
     headers: dict = Field(title="Dictionary of relevant HTTP headers")
@@ -282,7 +282,10 @@ Derived components MUST NOT be included in the signature input.
     if aggregate_interval:
         period = pendulum.parse(aggregate_interval)
         if not isinstance(period, pendulum.Interval):
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Invalid Aggregate-Interval")
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_ENTITY,
+                "Invalid Aggregate-Interval: must be an ISO 8601 time interval (e.g., '2024-01-01T12:00:00Z/PT1M')",
+            )
         aggregate_interval_start = pendulum_as_datetime(period.start)
         aggregate_interval_duration = period.start.diff(period.end).in_seconds()
     else:
