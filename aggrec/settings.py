@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Annotated, Tuple, Type
+from typing import Annotated
 
 from pydantic import AnyHttpUrl, BaseModel, DirectoryPath, Field, UrlConstraints
 from pydantic_core import Url
@@ -57,10 +57,10 @@ class Settings(BaseSettings):
     @classmethod
     def settings_customise_sources(
         cls,
-        settings_cls: Type[BaseSettings],
+        settings_cls: type[BaseSettings],
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
-    ) -> Tuple[PydanticBaseSettingsSource, ...]:
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (TomlConfigSettingsSource(settings_cls),)
