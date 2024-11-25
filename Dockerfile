@@ -8,4 +8,4 @@ FROM python:3.12
 WORKDIR /tmp
 COPY --from=builder /src/dist/*.whl .
 RUN pip3 install *.whl && rm *.whl
-ENTRYPOINT aggrec_server
+ENTRYPOINT ["aggrec_server"]
