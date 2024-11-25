@@ -4,7 +4,7 @@ import re
 from contextlib import suppress
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Annotated, Dict, List
+from typing import Annotated
 from urllib.parse import urljoin
 
 import bson
@@ -103,7 +103,7 @@ class AggregateMetadataResponse(BaseModel):
         )
 
 
-def get_http_headers(request: Request, covered_components_headers: List[str]) -> Dict[str, str]:
+def get_http_headers(request: Request, covered_components_headers: list[str]) -> dict[str, str]:
     """Get dictionary of relevant metadata HTTP headers"""
 
     relevant_headers = set([header.lower() for header in METADATA_HTTP_HEADERS])
