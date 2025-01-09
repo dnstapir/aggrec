@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from pydantic import AnyHttpUrl, BaseModel, DirectoryPath, Field, UrlConstraints
+from pydantic import AnyHttpUrl, BaseModel, Field, UrlConstraints
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, TomlConfigSettingsSource
 
@@ -46,7 +46,7 @@ class S3(BaseModel):
 
 class Settings(BaseSettings):
     metadata_base_url: AnyHttpUrl = Field(default="http://127.0.0.1")
-    clients_database: DirectoryPath | AnyHttpUrl = Field(default="clients")
+    clients_database: str = Field(default="clients")
     s3: S3 = Field(default=S3())
     mqtt: MqttSettings = Field(default=MqttSettings())
     mongodb: MongoDB = Field(default=MongoDB())

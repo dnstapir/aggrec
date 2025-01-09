@@ -46,7 +46,7 @@ class AggrecServer(FastAPI):
             self.logger.info("Configured without OpenTelemetry")
         key_cache = key_cache_from_settings(self.settings.key_cache) if self.settings.key_cache else None
         self.key_resolver = key_resolver_from_client_database(
-            client_database=str(self.settings.clients_database), key_cache=key_cache
+            client_database=self.settings.clients_database, key_cache=key_cache
         )
         self.mqtt_new_aggregate_messages = asyncio.Queue(maxsize=self.settings.mqtt.queue_size)
 
