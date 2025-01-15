@@ -639,7 +639,7 @@ opentelemetry = ["botocore (>=1.35.82,<2.0.0)", "fastapi (>=0.115.2)", "opentele
 [package.source]
 type = "git"
 url = "https://github.com/dnstapir/python-dnstapir.git"
-reference = "main"
+reference = "v1.3.0"
 resolved_reference = "01a2386e59ec2e9834f4642804b1be215e0459cd"
 
 [[package]]
@@ -2697,4 +2697,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "bdd330dc2d320d8b240ff17ff59d4736f7dac356ae52f57dc34c469780e75ea9"
+content-hash = "9b7119aff0e092e9042449df9ff41b1e106309846fc94f9cd2e3a4a368ef917f"
