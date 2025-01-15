@@ -1,9 +1,9 @@
 import hashlib
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
+import aniso8601
 import http_sf
-import pendulum
 from fastapi import HTTPException, Request, status
 from http_message_signatures import (
     HTTPMessageVerifier,
@@ -114,14 +114,18 @@ def rfc_3339_datetime_now() -> str:
     return str(datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
-def pendulum_as_datetime(dt: pendulum.DateTime) -> datetime:
-    return datetime(
-        year=dt.year,
-        month=dt.month,
-        day=dt.day,
-        hour=dt.hour,
-        minute=dt.minute,
-        second=dt.second,
-        microsecond=dt.microsecond,
-        tzinfo=dt.tzinfo,
-    )
+def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
+    """Parse ISO8601 interval and return resulting datetime and timedelta"""
+    t1, t2 = aniso8601.parse_interval(interval)
+    if not isinstance(t1, datetime) or not isinstance(t2, datetime):
+        raise ValueError("Invalid interval format")
+    if t1.tzinfo is None:
+        raise ValueError("Start time must include timezone")
+    if t2.tzinfo is None:
+        raise ValueError("End time must include timezone")
+    t1 = t1.astimezone(timezone.utc)
+    t2 = t2.astimezone(timezone.utc)
+    duration = timedelta(seconds=(t2 - t1).total_seconds())
+    if duration.total_seconds() < 0:
+        raise ValueError("Duration cannot be negative")
+    return t1, duration

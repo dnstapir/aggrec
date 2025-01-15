@@ -9,7 +9,6 @@ from typing import Annotated
 from urllib.parse import urljoin
 
 import bson
-import pendulum
 import pymongo
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -20,7 +19,7 @@ from pydantic import BaseModel, Field
 from aggrec.helpers import RequestVerifier
 
 from .db_models import AggregateMetadata
-from .helpers import pendulum_as_datetime, rfc_3339_datetime_now
+from .helpers import parse_iso8601_interval, rfc_3339_datetime_now
 from .settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -285,14 +284,14 @@ Derived components MUST NOT be included in the signature input.
     s3_bucket = request.app.settings.s3.get_bucket_name()
 
     if aggregate_interval:
-        period = pendulum.parse(aggregate_interval)
-        if not isinstance(period, pendulum.Interval):
+        try:
+            aggregate_interval_start, aggregate_interval_timedelta = parse_iso8601_interval(aggregate_interval)
+            aggregate_interval_duration = aggregate_interval_timedelta.total_seconds()
+        except ValueError as exc:
             raise HTTPException(
                 status.HTTP_422_UNPROCESSABLE_ENTITY,
                 "Invalid Aggregate-Interval: must be an ISO 8601 time interval (e.g., '2024-01-01T12:00:00Z/PT1M')",
-            )
-        aggregate_interval_start = pendulum_as_datetime(period.start)
-        aggregate_interval_duration = period.start.diff(period.end).in_seconds()
+            ) from exc
     else:
         aggregate_interval_start = None
         aggregate_interval_duration = None
