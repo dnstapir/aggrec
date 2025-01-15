@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import http_sf
 import pendulum
@@ -112,6 +112,12 @@ class RequestVerifier:
 def rfc_3339_datetime_now() -> str:
     """Return current time(UTC) as ISO 8601 timestamp"""
     return str(datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+
+
+def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
+    period = pendulum.parse(interval)
+    duration = period.start.diff(period.end).in_seconds()
+    return pendulum_as_datetime(period.start), timedelta(seconds=duration)
 
 
 def pendulum_as_datetime(dt: pendulum.DateTime) -> datetime:
