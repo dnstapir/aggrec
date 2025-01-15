@@ -119,4 +119,13 @@ def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
     t1, t2 = aniso8601.parse_interval(interval)
     if not isinstance(t1, datetime) or not isinstance(t2, datetime):
         raise ValueError("Invalid interval format")
-    return t1, timedelta(seconds=(t2 - t1).total_seconds())
+    if t1.tzinfo is None:
+        raise ValueError("Start time must include timezone")
+    if t2.tzinfo is None:
+        raise ValueError("End time must include timezone")
+    t1 = t1.astimezone(timezone.utc)
+    t2 = t2.astimezone(timezone.utc)
+    duration = timedelta(seconds=(t2 - t1).total_seconds())
+    if duration.total_seconds() < 0:
+        raise ValueError("Duration cannot be negative")
+    return t1, duration
