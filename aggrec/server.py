@@ -17,8 +17,9 @@ import aggrec.aggregates
 import aggrec.extras
 from dnstapir.key_cache import key_cache_from_settings
 from dnstapir.key_resolver import key_resolver_from_client_database
-from dnstapir.logging import configure_json_logging
+from dnstapir.logging import setup_logging
 from dnstapir.opentelemetry import configure_opentelemetry
+from dnstapir.starlette import LoggingMiddleware
 
 from . import OPENAPI_METADATA, __verbose_version__
 from .settings import Settings
@@ -33,9 +34,13 @@ class AggrecServer(FastAPI):
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self.settings = settings
         super().__init__(**OPENAPI_METADATA, lifespan=self.lifespan)
+
         self.add_middleware(ProxyHeadersMiddleware)
+        self.add_middleware(LoggingMiddleware)
+
         self.include_router(aggrec.aggregates.router)
         self.include_router(aggrec.extras.router)
+
         if self.settings.otlp:
             configure_opentelemetry(
                 service_name="aggrec",
@@ -132,6 +137,7 @@ def main() -> None:
 
     parser.add_argument("--host", help="Host address to bind to", default="0.0.0.0")
     parser.add_argument("--port", help="Port to listen on", type=int, default=8080)
+    parser.add_argument("--log-json", action="store_true", help="Enable JSON logging")
     parser.add_argument("--debug", action="store_true", help="Enable debugging")
     parser.add_argument("--version", action="store_true", help="Show version")
 
@@ -141,14 +147,7 @@ def main() -> None:
         print(f"Aggregate Receiver version {__verbose_version__}")
         return
 
-    logging_config = configure_json_logging()
-
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
-        log_level = "debug"
-    else:
-        logging.basicConfig(level=logging.INFO)
-        log_level = "info"
+    setup_logging(json_logs=args.log_json, log_level="DEBUG" if args.debug else "INFO")
 
     logger.info("Starting Aggregate Receiver version %s", __verbose_version__)
     app = AggrecServer(settings=Settings())
@@ -157,8 +156,8 @@ def main() -> None:
         app,
         host=args.host,
         port=args.port,
-        log_config=logging_config,
-        log_level=log_level,
+        log_config=None,
+        log_level=None,
         headers=[("server", f"dnstapir-aggrec/{__verbose_version__}")],
     )
 
