@@ -2,8 +2,8 @@ import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 
+import aniso8601
 import http_sf
-import pendulum
 from fastapi import HTTPException, Request, status
 from http_message_signatures import (
     HTTPMessageVerifier,
@@ -115,19 +115,5 @@ def rfc_3339_datetime_now() -> str:
 
 
 def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
-    period = pendulum.parse(interval)
-    duration = period.start.diff(period.end).in_seconds()
-    return pendulum_as_datetime(period.start), timedelta(seconds=duration)
-
-
-def pendulum_as_datetime(dt: pendulum.DateTime) -> datetime:
-    return datetime(
-        year=dt.year,
-        month=dt.month,
-        day=dt.day,
-        hour=dt.hour,
-        minute=dt.minute,
-        second=dt.second,
-        microsecond=dt.microsecond,
-        tzinfo=dt.tzinfo,
-    )
+    t1, t2 = aniso8601.parse_interval(interval)
+    return t1, timedelta(seconds=(t2 - t1).total_seconds())
