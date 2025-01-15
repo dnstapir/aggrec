@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from http_message_signatures import HTTPMessageSigner, HTTPSignatureKeyResolver, algorithms
 
+DEFAULT_AGGREGATE_INTERVAL_DURATION = "PT1M"
 DEFAULT_CONTENT_TYPE = "application/vnd.apache.parquet"
 DEFAULT_COVERED_COMPONENT_IDS = [
     "content-type",
@@ -48,7 +49,9 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Aggregate Sender")
 
-    default_interval = f"{datetime.now(tz=timezone.utc).isoformat()}/PT1M"
+    default_interval = (
+        f"{datetime.now(tz=timezone.utc).isoformat(timespec='seconds')}/{DEFAULT_AGGREGATE_INTERVAL_DURATION}"
+    )
 
     parser.add_argument(
         "aggregate",
