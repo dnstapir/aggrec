@@ -4,12 +4,12 @@ import hashlib
 import json
 import logging
 import uuid
+from datetime import datetime, timezone
 from urllib.parse import urljoin
 
 import cryptography.hazmat.primitives.asymmetric.ec as ec
 import cryptography.hazmat.primitives.asymmetric.rsa as rsa
 import http_sf
-import pendulum
 import requests
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -48,7 +48,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Aggregate Sender")
 
-    default_interval = f"{pendulum.now().to_iso8601_string()}/PT1M"
+    default_interval = f"{datetime.now(tz=timezone.utc).isoformat()}/PT1M"
 
     parser.add_argument(
         "aggregate",
@@ -58,7 +58,7 @@ def main() -> None:
     parser.add_argument(
         "--interval",
         metavar="interval",
-        help="Aggregate interval",
+        help=f"Aggregate interval (default {default_interval})",
         default=default_interval,
     )
     parser.add_argument(
