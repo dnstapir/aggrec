@@ -115,5 +115,8 @@ def rfc_3339_datetime_now() -> str:
 
 
 def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
+    """Parse ISO8601 interval and return resulting datetime and timedelta"""
     t1, t2 = aniso8601.parse_interval(interval)
+    if not isinstance(t1, datetime) or not isinstance(t2, datetime):
+        raise ValueError("Invalid interval format")
     return t1, timedelta(seconds=(t2 - t1).total_seconds())
