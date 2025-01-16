@@ -63,9 +63,9 @@ class AggrecServer(FastAPI):
 
                 params["host"] = params["host"].replace("mongomock://", "mongodb://")
                 params["mongo_client_class"] = mongomock.MongoClient
-            logger.info("Connecting to MongoDB %s", params)
+            self.logger.info("Connecting to MongoDB %s", params)
             mongoengine.connect(**params, tz_aware=True)
-            logger.info("MongoDB connected")
+            self.logger.info("MongoDB connected")
 
     def get_mqtt_client(self) -> aiomqtt.Client:
         client = aiomqtt.Client(
