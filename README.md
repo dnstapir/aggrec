@@ -11,33 +11,34 @@ Client are assumed to be authenticated using mTLS and all submitted data must be
 
 The default configuration file is `aggrec.toml`. Example configuration below:
 
-    clients_database = "clients"
+```toml
+metadata_base_url= "https://aggrec.example.com"
 
-    metadata_base_url= "http://127.0.0.1:8080"
+clients_database = "https://nodeman.example.com/api/v1/node/{key_id}/public_key"
 
-    [s3]
-    endpoint_url = "http://localhost:9000"
-    bucket = "aggregates"
-    create_bucket = true
-    access_key_id = "minioadmin"
-    secret_access_key = "minioadmin"
+[s3]
+endpoint_url = "http://localhost:9000"
+bucket = "aggregates"
+create_bucket = true
+access_key_id = "minioadmin"
+secret_access_key = "minioadmin"
 
-    [mongodb]
-    server =  "mongodb://localhost/aggregates"
+[mongodb]
+server =  "mongodb://localhost/aggregates"
 
-    [mqtt]
-    broker = "mqtt://localhost"
-    topic = "aggregates"
+[mqtt]
+broker = "mqtt://localhost"
+topic = "aggregates"
 
-    [otlp]
-    spans_endpoint = "http://localhost:4317"
-    metrics_endpoint = "http://localhost:4317"
-    insecure = true
+[otlp]
+spans_endpoint = "http://localhost:4317"
+metrics_endpoint = "http://localhost:4317"
+insecure = true
 
-    [cache]
-    size = 1000
-    ttl = 300
-
+[key_cache]
+size = 1000
+ttl = 300
+```
 
 ## API
 
