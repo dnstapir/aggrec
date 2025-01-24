@@ -622,7 +622,7 @@ wmi = ["wmi (>=1.5.1)"]
 
 [[package]]
 name = "dnstapir"
-version = "1.3.0"
+version = "1.3.3"
 description = "DNS TAPIR Python Library"
 optional = false
 python-versions = "^3.11"
@@ -631,10 +631,10 @@ files = []
 develop = false
 
 [package.dependencies]
-botocore = {version = "^1.35.82", optional = true}
+botocore = {version = ">=1.35.74", optional = true}
 cryptography = {version = ">=43.0.3", optional = true}
 faas-cache-dict = {version = "^0.5.0", optional = true}
-fastapi = {version = ">=0.115.2", optional = true}
+fastapi = {version = ">=0.115.7", optional = true}
 httpx = {version = ">=0.27.2", optional = true}
 opentelemetry-api = {version = "^1.28.1", optional = true}
 opentelemetry-exporter-otlp = {version = "^1.28.1", optional = true}
@@ -645,17 +645,17 @@ opentelemetry-instrumentation-redis = {version = ">=0.48b0", optional = true}
 pydantic = {version = "^2.10.5", optional = true}
 pymongo = {version = "^4.10.1", optional = true}
 redis = {version = "^5.1.1", optional = true}
-structlog = "^24.4.0"
+structlog = ">=24.4.0"
 
 [package.extras]
 keymanager = ["cryptography (>=43.0.3)", "faas-cache-dict (>=0.5.0,<0.6.0)", "httpx (>=0.27.2)", "opentelemetry-api (>=1.28.1,<2.0.0)", "pydantic (>=2.10.5,<3.0.0)", "pymongo (>=4.10.1,<5.0.0)", "redis (>=5.1.1,<6.0.0)"]
-opentelemetry = ["botocore (>=1.35.82,<2.0.0)", "fastapi (>=0.115.2)", "opentelemetry-api (>=1.28.1,<2.0.0)", "opentelemetry-exporter-otlp (>=1.28.1,<2.0.0)", "opentelemetry-instrumentation-botocore (>=0.48b0)", "opentelemetry-instrumentation-fastapi (>=0.48b0)", "opentelemetry-instrumentation-pymongo (>=0.48b0)", "opentelemetry-instrumentation-redis (>=0.48b0)"]
+opentelemetry = ["botocore (>=1.35.74)", "fastapi (>=0.115.7)", "opentelemetry-api (>=1.28.1,<2.0.0)", "opentelemetry-exporter-otlp (>=1.28.1,<2.0.0)", "opentelemetry-instrumentation-botocore (>=0.48b0)", "opentelemetry-instrumentation-fastapi (>=0.48b0)", "opentelemetry-instrumentation-pymongo (>=0.48b0)", "opentelemetry-instrumentation-redis (>=0.48b0)"]
 
 [package.source]
 type = "git"
 url = "https://github.com/dnstapir/python-dnstapir.git"
-reference = "v1.3.0"
-resolved_reference = "01a2386e59ec2e9834f4642804b1be215e0459cd"
+reference = "v1.3.3"
+resolved_reference = "775dbe1d626b41980cb4a16069533a762eaaa602"
 
 [[package]]
 name = "faas-cache-dict"
@@ -2307,14 +2307,14 @@ full = ["httpx (>=0.27.0,<0.29.0)", "itsdangerous", "jinja2", "python-multipart 
 
 [[package]]
 name = "structlog"
-version = "24.4.0"
+version = "25.1.0"
 description = "Structured Logging for Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "structlog-24.4.0-py3-none-any.whl", hash = "sha256:597f61e80a91cc0749a9fd2a098ed76715a1c8a01f73e336b746504d1aad7610"},
-    {file = "structlog-24.4.0.tar.gz", hash = "sha256:b27bfecede327a6d2da5fbc96bd859f114ecc398a6389d664f62085ee7ae6fc4"},
+    {file = "structlog-25.1.0-py3-none-any.whl", hash = "sha256:843fe4f254540329f380812cbe612e1af5ec5b8172205ae634679cd35a6d6321"},
+    {file = "structlog-25.1.0.tar.gz", hash = "sha256:2ef2a572e0e27f09664965d31a576afe64e46ac6084ef5cec3c2b8cd6e4e3ad3"},
 ]
 
 [package.extras]
@@ -2600,4 +2600,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "8f47d2975415dca62fac2c35f0776633cee1afd640de2d2bcceda511dd8b1c24"
+content-hash = "ecbe98a670d84a03587e1aaaf408e39d2a06f507077c8dd44f5f0a484b892641"
