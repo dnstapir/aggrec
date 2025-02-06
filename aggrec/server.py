@@ -7,6 +7,8 @@ import aiobotocore.session
 import aiomqtt
 import boto3
 import mongoengine
+import nats
+import nats.errors
 import uvicorn
 from aiomqtt.exceptions import MqttError
 from fastapi import FastAPI
@@ -22,7 +24,7 @@ from dnstapir.opentelemetry import configure_opentelemetry
 from dnstapir.starlette import LoggingMiddleware
 
 from . import OPENAPI_METADATA, __verbose_version__
-from .settings import Settings
+from .settings import MqttSettings, NatsSettings, Settings
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +55,13 @@ class AggrecServer(FastAPI):
         self.key_resolver = key_resolver_from_client_database(
             client_database=self.settings.clients_database, key_cache=key_cache
         )
-        self.mqtt_new_aggregate_messages = asyncio.Queue(maxsize=self.settings.mqtt.queue_size)
+
+        self.mqtt_new_aggregate_messages: asyncio.Queue[str] = (
+            asyncio.Queue(maxsize=self.settings.mqtt.queue_size) if self.settings.mqtt else None
+        )
+        self.nats_new_aggregate_messages: asyncio.Queue[str] = (
+            asyncio.Queue(maxsize=self.settings.nats.queue_size) if self.settings.nats else None
+        )
 
     def connect_mongodb(self):
         if mongodb_host := str(self.settings.mongodb.server):
@@ -67,14 +75,29 @@ class AggrecServer(FastAPI):
             mongoengine.connect(**params, tz_aware=True)
             self.logger.info("MongoDB connected")
 
-    def get_mqtt_client(self) -> aiomqtt.Client:
+    def get_mqtt_client(self, settings: MqttSettings) -> aiomqtt.Client:
+        assert settings is not None
+        self.logger.debug("Connecting to MQTT broker %s", settings.broker)
         client = aiomqtt.Client(
-            hostname=self.settings.mqtt.broker.host,
-            port=self.settings.mqtt.broker.port,
-            username=self.settings.mqtt.broker.username,
-            password=self.settings.mqtt.broker.password,
+            hostname=settings.broker.host,
+            port=settings.broker.port,
+            username=settings.broker.username,
+            password=settings.broker.password,
         )
         self.logger.debug("Created MQTT client %s", client)
+        return client
+
+    async def get_nats_client(self, settings: NatsSettings) -> nats.NATS:
+        assert settings is not None
+        servers = [str(server) for server in settings.servers]
+        self.logger.debug("Connecting to NATS servers %s", servers)
+        client = await nats.connect(
+            servers=servers,
+            name=settings.name,
+            user=settings.user,
+            password=settings.password,
+        )
+        self.logger.debug("Created NATS client %s", client)
         return client
 
     def get_s3_client(self) -> aiobotocore.session.ClientCreatorContext:
@@ -94,25 +117,65 @@ class AggrecServer(FastAPI):
         """Task for publishing enqueued MQTT messages"""
         _logger = self.logger.getChild("mqtt_publisher")
         _logger.debug("Starting MQTT publish task")
+        assert self.settings.mqtt is not None
         while True:
             try:
-                async with self.get_mqtt_client() as mqtt_client:
+                async with self.get_mqtt_client(self.settings.mqtt) as mqtt_client:
                     _logger.info("Connected to MQTT broker")
                     while True:
+                        _logger.debug("Waiting for MQTT messages")
                         message = await self.mqtt_new_aggregate_messages.get()
-                        _logger.debug("Publishing new aggregate message on %s", self.settings.mqtt.topic)
+                        _logger.debug(
+                            "Publishing new aggregate message on MQTT topic %s",
+                            self.settings.mqtt.topic,
+                        )
                         with tracer.start_as_current_span("mqtt.publish"):
                             await mqtt_client.publish(
-                                self.settings.mqtt.topic,
-                                message,
+                                topic=self.settings.mqtt.topic,
+                                payload=message.encode(),
                             )
             except MqttError as exc:
                 _logger.error("MQTT error: %s", str(exc))
             except asyncio.exceptions.CancelledError:
                 _logger.debug("MQTT publish task cancelled")
                 return
-            _logger.info("Reconnecting to MQTT broker in %d seconds", self.settings.mqtt.reconnect_interval)
+            _logger.info(
+                "Reconnecting to MQTT broker in %d seconds",
+                self.settings.mqtt.reconnect_interval,
+            )
             await asyncio.sleep(self.settings.mqtt.reconnect_interval)
+
+    async def nats_publisher(self):
+        """Task for publishing enqueued NATS messages"""
+        _logger = self.logger.getChild("nats_publisher")
+        _logger.debug("Starting NATS publish task")
+        assert self.settings.nats is not None
+        while True:
+            try:
+                nats_client = await self.get_nats_client(self.settings.nats)
+                _logger.info("Connected to NATS servers")
+                while True:
+                    _logger.debug("Waiting for NATS messages")
+                    message = await self.nats_new_aggregate_messages.get()
+                    _logger.debug(
+                        "Publishing new aggregate message on NATS topic %s",
+                        self.settings.nats.subject,
+                    )
+                    with tracer.start_as_current_span("nats.publish"):
+                        await nats_client.publish(
+                            subject=self.settings.nats.subject,
+                            payload=message.encode(),
+                        )
+            except nats.errors.ConnectionClosedError as exc:
+                _logger.error("NATS connection closed: %s", str(exc))
+            except asyncio.exceptions.CancelledError:
+                _logger.debug("NATS publish task cancelled")
+                return
+            _logger.info(
+                "Reconnecting to NATS server in %d seconds",
+                self.settings.nats.reconnect_interval,
+            )
+            await asyncio.sleep(self.settings.nats.reconnect_interval)
 
     @staticmethod
     @asynccontextmanager
@@ -120,7 +183,10 @@ class AggrecServer(FastAPI):
         app.logger.debug("Lifespan startup")
         app.connect_mongodb()
         tasks = []
-        tasks.append(asyncio.create_task(app.mqtt_publisher()))
+        if app.settings.mqtt:
+            tasks.append(asyncio.create_task(app.mqtt_publisher()))
+        if app.settings.nats:
+            tasks.append(asyncio.create_task(app.nats_publisher()))
         logger.debug("Background tasks started")
         yield
         for task in tasks:

@@ -47,6 +47,11 @@ aggregates_mqtt_queue_drops = meter.create_counter(
     description="MQTT messages dropped due to full queue",
 )
 
+aggregates_nats_queue_drops = meter.create_counter(
+    "aggregates.nats_queue_drops",
+    description="NATS messages dropped due to full queue",
+)
+
 
 METADATA_HTTP_HEADERS = [
     "User-Agent",
@@ -344,13 +349,23 @@ Derived components MUST NOT be included in the signature input.
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
     aggregates_by_creator_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
 
-    try:
-        request.app.mqtt_new_aggregate_messages.put_nowait(
-            json.dumps(get_new_aggregate_event_message(metadata, request.app.settings))
-        )
-    except asyncio.QueueFull:
-        aggregates_mqtt_queue_drops.add(1)
-        logger.warning("MQTT queue full, message dropped")
+    message_payload = json.dumps(get_new_aggregate_event_message(metadata, request.app.settings))
+
+    if request.app.mqtt_new_aggregate_messages is not None:
+        try:
+            request.app.mqtt_new_aggregate_messages.put_nowait(message_payload)
+            logger.debug("New aggregate message added to MQTT queue")
+        except asyncio.QueueFull:
+            aggregates_mqtt_queue_drops.add(1)
+            logger.warning("MQTT queue full, message dropped")
+
+    if request.app.nats_new_aggregate_messages is not None:
+        try:
+            request.app.nats_new_aggregate_messages.put_nowait(message_payload)
+            logger.debug("New aggregate message added to NATS queue")
+        except asyncio.QueueFull:
+            aggregates_nats_queue_drops.add(1)
+            logger.warning("NATS queue full, message dropped")
 
     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
 
