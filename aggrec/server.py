@@ -91,12 +91,16 @@ class AggrecServer(FastAPI):
         assert settings is not None
         servers = [str(server) for server in settings.servers]
         self.logger.debug("Connecting to NATS servers %s", servers)
-        client = await nats.connect(
-            servers=servers,
-            name=settings.name,
-            user=settings.user,
-            password=settings.password,
-        )
+        try:
+            client = await nats.connect(
+                servers=servers,
+                name=settings.name,
+                user=settings.user,
+                password=settings.password,
+            )
+        except nats.errors.Error as e:
+            self.logger.error("Failed to connect to NATS servers: %s", str(e))
+            raise
         self.logger.debug("Created NATS client %s", client)
         return client
 
