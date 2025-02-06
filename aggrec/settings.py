@@ -34,7 +34,7 @@ class MqttSettings(BaseModel):
 
 
 class NatsSettings(BaseModel):
-    servers: list[NatsUrl] = Field(default="nats://localhost:4222")
+    servers: list[NatsUrl] = Field(default=["nats://localhost:4222"])
     name: str = Field(default="aggrec")
     user: str | None = None
     password: str | None = None

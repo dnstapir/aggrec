@@ -56,10 +56,10 @@ class AggrecServer(FastAPI):
             client_database=self.settings.clients_database, key_cache=key_cache
         )
 
-        self.mqtt_new_aggregate_messages: asyncio.Queue[str] = (
+        self.mqtt_new_aggregate_messages: asyncio.Queue[str] | None = (
             asyncio.Queue(maxsize=self.settings.mqtt.queue_size) if self.settings.mqtt else None
         )
-        self.nats_new_aggregate_messages: asyncio.Queue[str] = (
+        self.nats_new_aggregate_messages: asyncio.Queue[str] | None = (
             asyncio.Queue(maxsize=self.settings.nats.queue_size) if self.settings.nats else None
         )
 
@@ -171,6 +171,11 @@ class AggrecServer(FastAPI):
             except asyncio.exceptions.CancelledError:
                 _logger.debug("NATS publish task cancelled")
                 return
+            except Exception as exc:
+                _logger.error("NATS connection error: %s", str(exc))
+            finally:
+                if not nats_client.is_closed:
+                    await nats_client.close()
             _logger.info(
                 "Reconnecting to NATS server in %d seconds",
                 self.settings.nats.reconnect_interval,
