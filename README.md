@@ -30,6 +30,10 @@ server =  "mongodb://localhost/aggregates"
 broker = "mqtt://localhost"
 topic = "aggregates"
 
+[nats]
+servers = ["nats://localhost:4222"]
+subject = "aggregates"
+
 [otlp]
 spans_endpoint = "http://localhost:4317"
 metrics_endpoint = "http://localhost:4317"

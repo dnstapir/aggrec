@@ -1290,6 +1290,22 @@ files = [
 ]
 
 [[package]]
+name = "nats-py"
+version = "2.9.0"
+description = "NATS client for Python"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "nats_py-2.9.0.tar.gz", hash = "sha256:01886eb9e0a87f0ec630652cf1fae65d2a8556378a609bc6cc07d2ea60c8d0dd"},
+]
+
+[package.extras]
+aiohttp = ["aiohttp"]
+fast-parse = ["fast-mail-parser"]
+nkeys = ["nkeys"]
+
+[[package]]
 name = "objsize"
 version = "0.7.0"
 description = "Traversal over Python's objects subtree and calculate the total size of the subtree in bytes (deep size)."
@@ -2586,4 +2602,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "ecbe98a670d84a03587e1aaaf408e39d2a06f507077c8dd44f5f0a484b892641"
+content-hash = "64d52ce75901977e1a78ca25797d9ff8071572fe60fbd89e11ee2c27f3b60948"

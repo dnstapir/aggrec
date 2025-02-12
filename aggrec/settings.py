@@ -13,6 +13,11 @@ MqttUrl = Annotated[
     UrlConstraints(allowed_schemes=["mqtt", "mqtts"], default_port=1883, host_required=True),
 ]
 
+NatsUrl = Annotated[
+    Url,
+    UrlConstraints(allowed_schemes=["nats", "tls"], default_port=4222, host_required=True),
+]
+
 MongodbUrl = Annotated[
     Url,
     UrlConstraints(allowed_schemes=["mongodb"], default_port=27017, host_required=True),
@@ -24,6 +29,16 @@ class MqttSettings(BaseModel):
     username: str | None = None
     password: str | None = None
     topic: str = Field(default="aggregates")
+    reconnect_interval: int = Field(default=5)
+    queue_size: int = Field(default=1024)
+
+
+class NatsSettings(BaseModel):
+    servers: list[NatsUrl] = Field(default=["nats://localhost:4222"])
+    name: str = Field(default="aggrec")
+    user: str | None = None
+    password: str | None = None
+    subject: str = Field(default="aggregates")
     reconnect_interval: int = Field(default=5)
     queue_size: int = Field(default=1024)
 
@@ -48,7 +63,8 @@ class Settings(BaseSettings):
     metadata_base_url: AnyHttpUrl = Field(default="http://127.0.0.1")
     clients_database: str = Field(default="clients")
     s3: S3 = Field(default=S3())
-    mqtt: MqttSettings = Field(default=MqttSettings())
+    mqtt: MqttSettings | None = None
+    nats: NatsSettings | None = None
     mongodb: MongoDB = Field(default=MongoDB())
     otlp: OtlpSettings | None = None
     key_cache: KeyCacheSettings | None = None
