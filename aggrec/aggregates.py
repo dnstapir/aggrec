@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import re
+import uuid
 from contextlib import suppress
 from datetime import datetime, timezone
 from enum import Enum
@@ -131,7 +132,9 @@ def get_aggregate_location(aggregate_id: ObjectId) -> str:
 def get_new_aggregate_event_message(metadata: AggregateMetadata, settings: Settings) -> dict:
     """Get new aggregate event message"""
     return {
+        "$schema": "https://schema.dnstapir.se/v1/new_aggregate",
         "version": 1,
+        "message_id": str(uuid.uuid4()),
         "timestamp": rfc_3339_datetime_now(),
         "type": "new_aggregate",
         "aggregate_id": str(metadata.id),
