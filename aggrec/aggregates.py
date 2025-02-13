@@ -450,7 +450,7 @@ async def get_aggregate_payload(
             media_type=metadata.content_type,
             headers={
                 "Link": f'{metadata_location}; rel="about"',
-                # "Content-Length": str(metadata.content_length),
+                "Content-Length": str(metadata.content_length),
             },
         )
 
