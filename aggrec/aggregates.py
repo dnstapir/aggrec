@@ -335,6 +335,7 @@ Derived components MUST NOT be included in the signature input.
                 Key=metadata.s3_object_key,
                 Metadata=s3_object_metadata,
                 ContentType=content_type,
+                ContentLength=metadata.content_length,
                 Body=content,
             )
         logger.info("Object created: %s", metadata.s3_object_key)
