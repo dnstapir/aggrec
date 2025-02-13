@@ -347,7 +347,6 @@ Derived components MUST NOT be included in the signature input.
                 Metadata=s3_object_metadata,
                 ContentType=content_type,
                 ContentLength=metadata.content_length,
-                ChecksumAlgorithm="SHA-256",
                 ChecksumSHA256=content_checksum,
                 Body=content,
             )
