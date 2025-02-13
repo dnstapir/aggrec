@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import hashlib
 import json
 import logging
 import re
@@ -317,8 +319,17 @@ Derived components MUST NOT be included in the signature input.
     )
 
     content = await request.body()
+    content_checksum = base64.b64encode(hashlib.sha256(content).digest()).decode()
 
-    metadata.content_length = len(content)
+    actual_content_length = len(content)
+    reported_content_length = int(request.headers["Content-Length"])
+    if actual_content_length != reported_content_length:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Content-Length header ({reported_content_length}) does not match actual content length ({actual_content_length})",
+        )
+
+    metadata.content_length = actual_content_length
     metadata.s3_object_key = get_s3_object_key(metadata)
 
     s3_object_metadata = get_s3_object_metadata(metadata)
@@ -335,6 +346,8 @@ Derived components MUST NOT be included in the signature input.
                 Key=metadata.s3_object_key,
                 Metadata=s3_object_metadata,
                 ContentType=content_type,
+                ContentLength=metadata.content_length,
+                ChecksumSHA256=content_checksum,
                 Body=content,
             )
         logger.info("Object created: %s", metadata.s3_object_key)
@@ -437,7 +450,7 @@ async def get_aggregate_payload(
             media_type=metadata.content_type,
             headers={
                 "Link": f'{metadata_location}; rel="about"',
-                # "Content-Length": str(metadata.content_length),
+                "Content-Length": str(metadata.content_length),
             },
         )
 
