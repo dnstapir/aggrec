@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import hashlib
 import json
 import logging
 import re
@@ -317,6 +319,7 @@ Derived components MUST NOT be included in the signature input.
     )
 
     content = await request.body()
+    content_checksum = base64.b64encode(hashlib.sha256(content).digest()).decode()
 
     metadata.content_length = len(content)
     metadata.s3_object_key = get_s3_object_key(metadata)
@@ -336,6 +339,8 @@ Derived components MUST NOT be included in the signature input.
                 Metadata=s3_object_metadata,
                 ContentType=content_type,
                 ContentLength=metadata.content_length,
+                ChecksumAlgorithm="SHA-256",
+                ChecksumSHA256=content_checksum,
                 Body=content,
             )
         logger.info("Object created: %s", metadata.s3_object_key)
