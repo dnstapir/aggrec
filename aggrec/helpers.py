@@ -78,12 +78,23 @@ class RequestVerifier:
 
     async def verify(self, request: Request) -> VerifyResult:
         """Verify request and return signer"""
+
+        self.logger.debug(
+            "Verify HTTP request",
+            extra={
+                "http_request_method": request.method,
+                "http_request_url": request.url,
+                "http_request_headers": request.headers,
+            },
+        )
+
         alg = self.get_algorithm(request.headers)
         signature_algorithm = supported_signature_algorithms[alg]
         verifier = HTTPMessageVerifier(
             signature_algorithm=signature_algorithm,
             key_resolver=self.http_key_resolver,
         )
+
         try:
             results = verifier.verify(request)
         except KeyError as exc:
