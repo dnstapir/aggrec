@@ -162,7 +162,7 @@ class AggrecServer(FastAPI):
                     _logger.debug("Waiting for NATS messages")
                     message = await self.nats_new_aggregate_messages.get()
                     _logger.debug(
-                        "Publishing new aggregate message on NATS topic %s",
+                        "Publishing new aggregate message on NATS subject %s",
                         self.settings.nats.subject,
                     )
                     with tracer.start_as_current_span("nats.publish"):
