@@ -11,7 +11,7 @@ aggrec_client = "aggrec.client:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"
-dnstapir = {git = "https://github.com/dnstapir/python-dnstapir.git", rev = "v1.3.3", extras = ["keymanager", "opentelemetry"]}
+dnstapir = {git = "https://github.com/dnstapir/python-dnstapir.git", rev = "v1.5.0", extras = ["keymanager", "opentelemetry"]}
 mongoengine = "^0.29.0"
 http-message-signatures = ">=0.5.0"
 requests = "^2.30.0"
