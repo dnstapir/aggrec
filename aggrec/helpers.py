@@ -128,9 +128,14 @@ class RequestVerifier:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
 
+def rfc_3339_datetime(dt: datetime) -> str:
+    """Convert datetime to UTC and return as ISO 8601 timestamp"""
+    return dt.astimezone(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def rfc_3339_datetime_now() -> str:
-    """Return current time(UTC) as ISO 8601 timestamp"""
-    return str(datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    """Return current time in UTC as ISO 8601 timestamp"""
+    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
