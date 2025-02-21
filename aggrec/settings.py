@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from pydantic import AnyHttpUrl, BaseModel, Field, UrlConstraints
-from pydantic.networks import IPv4Address, IPvAnyAddress
+from pydantic.networks import IPv4Address, IPvAnyAddress, IPvAnyNetwork
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, TomlConfigSettingsSource
 
@@ -26,7 +26,7 @@ MongodbUrl = Annotated[
 
 
 class HttpSettings(BaseModel):
-    trusted_hosts: list[IPvAnyAddress] = Field(default=[IPv4Address("127.0.0.1")])
+    trusted_hosts: list[IPvAnyAddress | IPvAnyNetwork] = Field(default=[IPv4Address("127.0.0.1")])
 
 
 class MqttSettings(BaseModel):
