@@ -1,9 +1,9 @@
-from enum import Enum
+from enum import StrEnum
 
 from mongoengine import DateTimeField, DictField, Document, EnumField, IntField, StringField
 
 
-class AggregateType(Enum):
+class AggregateType(StrEnum):
     HISTOGRAM = "histogram"
     VECTOR = "vector"
 
