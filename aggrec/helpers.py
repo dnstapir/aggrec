@@ -79,14 +79,13 @@ class RequestVerifier:
     async def verify(self, request: Request) -> VerifyResult:
         """Verify request and return signer"""
 
-        self.logger.debug(
-            "Verify HTTP request",
-            extra={
-                "http_request_method": request.method,
-                "http_request_url": request.url,
-                "http_request_headers": request.headers,
-            },
-        )
+        logger_extra = {
+            "http_request_method": request.method,
+            "http_request_url": request.url,
+            "http_request_headers": request.headers,
+        }
+
+        self.logger.debug("Verify HTTP request", extra=logger_extra)
 
         alg = self.get_algorithm(request.headers)
         signature_algorithm = supported_signature_algorithms[alg]
@@ -98,12 +97,17 @@ class RequestVerifier:
         try:
             results = verifier.verify(request)
         except KeyError as exc:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unknown HTTP signature key") from exc
+            msg = "Unknown HTTP signature key"
+            self.logger.warning(msg, extra=logger_extra, exc_info=exc)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
         except InvalidSignature as exc:
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid HTTP signature") from exc
+            msg = "Invalid HTTP signature"
+            self.logger.warning(msg, extra=logger_extra, exc_info=exc)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
         except Exception as exc:
-            self.logger.warning("Unable to verify HTTP signature", exc_info=exc)
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unable to verify HTTP signature") from exc
+            msg = "Unable to verify HTTP signature"
+            self.logger.warning(msg, extra=logger_extra, exc_info=exc)
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, msg) from exc
 
         for result in results:
             try:
@@ -111,13 +115,17 @@ class RequestVerifier:
                 self.logger.debug("Content-Digest verified")
                 return result
             except InvalidContentDigest as exc:
-                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Content-Digest verification failed") from exc
+                msg = "Content-Digest verification failed"
+                self.logger.warning(msg, extra=logger_extra, exc_info=exc)
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
             except UnsupportedContentDigestAlgorithm:
                 self.logger.debug("Unsupported Content-Digest algorithm")
             except ContentDigestMissing:
                 self.logger.debug("Content-Digest header missing")
 
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Unable to verify Content-Digest")
+        msg = "Unable to verify Content-Digest"
+        self.logger.warning(msg, extra=logger_extra)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
 
 def rfc_3339_datetime_now() -> str:
