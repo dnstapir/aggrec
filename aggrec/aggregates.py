@@ -12,6 +12,7 @@ from typing import Annotated
 from urllib.parse import urljoin
 
 import bson
+import bson.errors
 import pymongo
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -22,7 +23,7 @@ from pydantic import BaseModel, Field
 from aggrec.helpers import RequestVerifier
 
 from .db_models import AggregateMetadata
-from .helpers import parse_iso8601_interval, rfc_3339_datetime_now
+from .helpers import parse_iso8601_interval, rfc_3339_datetime
 from .settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -80,11 +81,21 @@ class AggregateContentType(str, Enum):
 
 
 class AggregateMetadataResponse(BaseModel):
-    aggregate_id: str = Field(title="Aggregate identifier", example="3b241101-e2bb-4255-8caf-4136c566a962")
-    aggregate_type: AggregateType = Field(title="Aggregate type", example="application/vnd.apache.parquet")
+    aggregate_id: str = Field(
+        title="Aggregate identifier",
+        json_schema_extra={
+            "examples": ["3b241101-e2bb-4255-8caf-4136c566a962"],
+        },
+    )
+    aggregate_type: AggregateType = Field(
+        title="Aggregate type",
+        json_schema_extra={
+            "examples": ["application/vnd.apache.parquet"],
+        },
+    )
     created: datetime = Field(title="Aggregate creation timestamp")
     creator: str = Field(title="Aggregate creator")
-    headers: dict = Field(title="Dictionary of relevant HTTP headers")
+    headers: dict[str, str] = Field(title="Dictionary of relevant HTTP headers")
     content_type: str = Field(title="Content MIME type")
     content_length: int = Field(title="Content length")
     content_location: str = Field(title="Content location (URL)")
@@ -136,43 +147,42 @@ def get_aggregate_location(aggregate_id: ObjectId) -> str:
     return f"/api/v1/aggregates/{aggregate_id}"
 
 
-def get_new_aggregate_event_message(metadata: AggregateMetadata, settings: Settings) -> dict:
+def get_new_aggregate_event_message(metadata: AggregateMetadata, settings: Settings) -> dict[str, str | int]:
     """Get new aggregate event message"""
+
+    metadata_location = urljoin(str(settings.metadata_base_url), f"/api/v1/aggregates/{metadata.id}")
+    content_location = urljoin(str(settings.metadata_base_url), f"/api/v1/aggregates/{metadata.id}/payload")
+
+    interval_properties = (
+        {
+            "aggregate_interval_start": rfc_3339_datetime(metadata.aggregate_interval_start),
+            "aggregate_interval_duration": int(metadata.aggregate_interval_duration),
+        }
+        if metadata.aggregate_interval_start and metadata.aggregate_interval_duration
+        else {}
+    )
+
     return {
         "$schema": "https://schema.dnstapir.se/v1/new_aggregate",
         "version": 1,
         "message_id": str(uuid.uuid4()),
-        "timestamp": rfc_3339_datetime_now(),
+        "timestamp": rfc_3339_datetime(datetime.now(tz=timezone.utc)),
         "type": "new_aggregate",
         "aggregate_id": str(metadata.id),
         "aggregate_type": metadata.aggregate_type.value,
-        "created": metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "created": rfc_3339_datetime(metadata.id.generation_time),
         "creator": str(metadata.creator),
-        "metadata_location": urljoin(
-            str(settings.metadata_base_url),
-            f"/api/v1/aggregates/{metadata.id}",
-        ),
-        "content_location": urljoin(
-            str(settings.metadata_base_url),
-            f"/api/v1/aggregates/{metadata.id}/payload",
-        ),
+        "metadata_location": metadata_location,
+        "content_location": content_location,
         "s3_bucket": metadata.s3_bucket,
         "s3_object_key": metadata.s3_object_key,
-        **(
-            {
-                "aggregate_interval_start": metadata.aggregate_interval_start.astimezone(tz=timezone.utc).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
-                "aggregate_interval_duration": metadata.aggregate_interval_duration,
-            }
-            if metadata.aggregate_interval_start and metadata.aggregate_interval_duration
-            else {}
-        ),
+        **interval_properties,
     }
 
 
 def get_s3_object_key(metadata: AggregateMetadata) -> str:
     """Get S3 object key from metadata"""
+
     dt = metadata.id.generation_time
     dt = dt.astimezone(tz=timezone.utc)
     fields_dict = {
@@ -190,23 +200,24 @@ def get_s3_object_key(metadata: AggregateMetadata) -> str:
     return "/".join(fields_list)
 
 
-def get_s3_object_metadata(metadata: AggregateMetadata) -> dict:
+def get_s3_object_metadata(metadata: AggregateMetadata) -> dict[str, str]:
     """Get S3 object metadata from metadata"""
+
+    interval_properties = (
+        {
+            "interval-start": rfc_3339_datetime(metadata.aggregate_interval_start),
+            "interval-duration": str(metadata.aggregate_interval_duration),
+        }
+        if metadata.aggregate_interval_start and metadata.aggregate_interval_duration
+        else {}
+    )
+
     return {
         "aggregate-id": str(metadata.id),
         "aggregate-type": metadata.aggregate_type.value,
-        "created": metadata.id.generation_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "created": rfc_3339_datetime(metadata.id.generation_time),
         "creator": str(metadata.creator),
-        **(
-            {
-                "interval-start": metadata.aggregate_interval_start.astimezone(tz=timezone.utc).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
-                "interval-duration": str(metadata.aggregate_interval_duration),
-            }
-            if metadata.aggregate_interval_start and metadata.aggregate_interval_duration
-            else {}
-        ),
+        **interval_properties,
     }
 
 

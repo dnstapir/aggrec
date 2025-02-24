@@ -19,6 +19,7 @@ from dnstapir.key_resolver import KeyResolver, PublicKey
 
 DEFAULT_SIGNATURE_ALGORITHM = algorithms.ECDSA_P256_SHA256
 HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
+RFC_3339_TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
 
 class ContentDigestException(ValueError):
@@ -130,12 +131,7 @@ class RequestVerifier:
 
 def rfc_3339_datetime(dt: datetime) -> str:
     """Convert datetime to UTC and return as ISO 8601 timestamp"""
-    return dt.astimezone(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def rfc_3339_datetime_now() -> str:
-    """Return current time in UTC as ISO 8601 timestamp"""
-    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return dt.astimezone(tz=timezone.utc).strftime(RFC_3339_TIMESTAMP_FORMAT)
 
 
 def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
