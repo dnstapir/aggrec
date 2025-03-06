@@ -139,28 +139,28 @@ def main() -> None:
 
     req.headers["Aggregate-Interval"] = args.interval
 
-    req = req.prepare()
-    req.headers["X-Request-ID"] = str(uuid.uuid4())
-    req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
-    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.body).digest()})
+    preq = session.prepare_request(req)
+    preq.headers["X-Request-ID"] = str(uuid.uuid4())
+    preq.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
+    preq.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(preq.body).digest()})
 
     if args.http_key_id:
         key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
         signer = HTTPMessageSigner(signature_algorithm=key_resolver.algorithm, key_resolver=key_resolver)
         signer.sign(
-            req,
+            preq,
             key_id=args.http_key_id,
             label="client",
             covered_component_ids=covered_component_ids,
             include_alg=True,
         )
 
-    for k, v in req.headers.items():
+    for k, v in preq.headers.items():
         print(f"{k}: {v}")
     print("")
 
     for _ in range(args.count):
-        resp = session.send(req)
+        resp = session.send(preq)
         resp.raise_for_status()
         print(resp)
 
