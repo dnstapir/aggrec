@@ -1,7 +1,10 @@
 name: Tests
 
-on: [push, pull_request]
-
+on:
+  pull_request:
+  push:
+    branches:
+      - main
 jobs:
   ruff:
     runs-on: ubuntu-latest
