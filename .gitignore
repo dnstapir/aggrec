@@ -13,3 +13,4 @@ aggrec/buildinfo.py
 clients
 credentials.json
 random.bin
+*.egg-info
