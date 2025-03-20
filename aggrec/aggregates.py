@@ -335,32 +335,36 @@ Derived components MUST NOT be included in the signature input.
     s3_object_metadata = get_s3_object_metadata(metadata)
     logger.debug("S3 object metadata: %s", s3_object_metadata)
 
-    async with request.app.get_s3_client() as s3_client:
-        if request.app.settings.s3.create_bucket:
-            with suppress(Exception):
-                await s3_client.create_bucket(Bucket=s3_bucket)
+    with tracer.start_as_current_span("mongodb.insert"):
+        try:
+            with pymongo.timeout(request.app.settings.mongodb.timeout):
+                metadata.save()
+            logger.info("Metadata saved: %s", metadata.id)
+        except Exception as exc:
+            logger.error("Failed to save metadata %s", metadata.id, exc_info=exc)
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Database error") from exc
 
-        with tracer.start_as_current_span("s3.put_object"):
-            await s3_client.put_object(
-                Bucket=s3_bucket,
-                Key=metadata.s3_object_key,
-                Metadata=s3_object_metadata,
-                ContentType=content_type,
-                ContentLength=metadata.content_length,
-                ChecksumSHA256=content_checksum,
-                Body=content,
-            )
-        logger.info("Object created: %s", metadata.s3_object_key)
+    with tracer.start_as_current_span("s3.put_object"):
+        async with request.app.get_s3_client() as s3_client:
+            if request.app.settings.s3.create_bucket:
+                with suppress(Exception):
+                    await s3_client.create_bucket(Bucket=s3_bucket)
 
-        with tracer.start_as_current_span("mongodb.insert"):
             try:
-                with pymongo.timeout(2):
-                    metadata.save(request.app.settings.mongodb.timeout)
-                logger.info("Metadata saved: %s", metadata.id)
+                await s3_client.put_object(
+                    Bucket=s3_bucket,
+                    Key=metadata.s3_object_key,
+                    Metadata=s3_object_metadata,
+                    ContentType=content_type,
+                    ContentLength=metadata.content_length,
+                    ChecksumSHA256=content_checksum,
+                    Body=content,
+                )
+                logger.info("Object created: %s", metadata.s3_object_key)
             except Exception as exc:
-                logger.error("Failed to save metadata, deleting object %s", metadata.s3_object_key, exc_info=exc)
-                await s3_client.delete_object(Bucket=s3_bucket, Key=metadata.s3_object_key)
-                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Database error") from exc
+                logger.error("Failed to create object, deleting metadata %s", metadata.id, exc_info=exc)
+                metadata.delete()
+                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 error") from exc
 
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
     aggregates_by_creator_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
