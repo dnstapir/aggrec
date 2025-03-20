@@ -6,9 +6,9 @@ import logging
 import re
 import uuid
 from contextlib import suppress
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Any
 from urllib.parse import urljoin
 
 import bson
@@ -136,7 +136,7 @@ def get_aggregate_location(aggregate_id: ObjectId) -> str:
     return f"/api/v1/aggregates/{aggregate_id}"
 
 
-def get_new_aggregate_event_message(metadata: AggregateMetadata, settings: Settings) -> dict:
+def get_new_aggregate_event_message(metadata: AggregateMetadata, settings: Settings) -> dict[str, Any]:
     """Get new aggregate event message"""
     return {
         "$schema": "https://schema.dnstapir.se/v1/new_aggregate",
@@ -160,7 +160,7 @@ def get_new_aggregate_event_message(metadata: AggregateMetadata, settings: Setti
         "s3_object_key": metadata.s3_object_key,
         **(
             {
-                "aggregate_interval_start": metadata.aggregate_interval_start.astimezone(tz=datetime.UTC).strftime(
+                "aggregate_interval_start": metadata.aggregate_interval_start.astimezone(tz=UTC).strftime(
                     "%Y-%m-%dT%H:%M:%SZ"
                 ),
                 "aggregate_interval_duration": metadata.aggregate_interval_duration,
@@ -174,7 +174,7 @@ def get_new_aggregate_event_message(metadata: AggregateMetadata, settings: Setti
 def get_s3_object_key(metadata: AggregateMetadata) -> str:
     """Get S3 object key from metadata"""
     dt = metadata.id.generation_time
-    dt = dt.astimezone(tz=datetime.UTC)
+    dt = dt.astimezone(tz=UTC)
     fields_dict = {
         "type": metadata.aggregate_type.name.lower(),
         "year": f"{dt.year:04}",
@@ -190,7 +190,7 @@ def get_s3_object_key(metadata: AggregateMetadata) -> str:
     return "/".join(fields_list)
 
 
-def get_s3_object_metadata(metadata: AggregateMetadata) -> dict:
+def get_s3_object_metadata(metadata: AggregateMetadata) -> dict[str, Any]:
     """Get S3 object metadata from metadata"""
     return {
         "aggregate-id": str(metadata.id),
@@ -199,9 +199,7 @@ def get_s3_object_metadata(metadata: AggregateMetadata) -> dict:
         "creator": str(metadata.creator),
         **(
             {
-                "interval-start": metadata.aggregate_interval_start.astimezone(tz=datetime.UTC).strftime(
-                    "%Y-%m-%dT%H:%M:%SZ"
-                ),
+                "interval-start": metadata.aggregate_interval_start.astimezone(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "interval-duration": str(metadata.aggregate_interval_duration),
             }
             if metadata.aggregate_interval_start and metadata.aggregate_interval_duration
