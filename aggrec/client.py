@@ -5,6 +5,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urljoin
 
 import cryptography.hazmat.primitives.asymmetric.ec as ec
@@ -14,6 +15,7 @@ import requests
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 from http_message_signatures import HTTPMessageSigner, HTTPSignatureKeyResolver, algorithms
+from jwcrypto.jwk import JWK
 
 DEFAULT_AGGREGATE_INTERVAL_DURATION = "PT1M"
 DEFAULT_CONTENT_TYPE = "application/vnd.apache.parquet"
@@ -26,9 +28,14 @@ DEFAULT_COVERED_COMPONENT_IDS = [
 
 
 class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
-    def __init__(self, filename: str) -> None:
-        with open(filename, "rb") as fh:
-            self.private_key = load_pem_private_key(fh.read(), password=None)
+    def __init__(self, filename: Path) -> None:
+        if filename.name.endswith(".json"):
+            with open(filename) as fp:
+                self.private_key = JWK(**json.load(fp)).get_op_key(operation="sign")
+        else:
+            with open(filename, "rb") as fh:
+                self.private_key = load_pem_private_key(fh.read(), password=None)
+
         if isinstance(self.private_key, ed25519.Ed25519PrivateKey):
             self.algorithm = algorithms.ED25519
         elif isinstance(self.private_key, ec.EllipticCurvePrivateKey):
@@ -69,12 +76,14 @@ def main() -> None:
         metavar="filename",
         help="TLS client certificate",
         required=False,
+        type=Path,
     )
     parser.add_argument(
         "--tls-key-file",
         metavar="filename",
         help="TLS client private key",
         required=False,
+        type=Path,
     )
     parser.add_argument(
         "--http-key-id",
@@ -87,6 +96,7 @@ def main() -> None:
         metavar="filename",
         help="HTTP signature key file",
         required=False,
+        type=Path,
     )
     parser.add_argument(
         "--server",
@@ -125,6 +135,12 @@ def main() -> None:
     elif args.tls_cert_file:
         session.cert = args.tls_cert_file
 
+    key_id = args.http_key_id
+    if args.http_key_file and args.http_key_file.name.endswith(".json"):
+        with open(args.http_key_file) as fp:
+            jwk = JWK(**json.load(fp))
+            key_id = jwk.key_id
+
     covered_component_ids = DEFAULT_COVERED_COMPONENT_IDS
 
     with open(args.aggregate, "rb") as fp:
@@ -144,12 +160,12 @@ def main() -> None:
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
     req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.body).digest()})
 
-    if args.http_key_id:
+    if key_id:
         key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
         signer = HTTPMessageSigner(signature_algorithm=key_resolver.algorithm, key_resolver=key_resolver)
         signer.sign(
             req,
-            key_id=args.http_key_id,
+            key_id=key_id,
             label="client",
             covered_component_ids=covered_component_ids,
             include_alg=True,
@@ -161,8 +177,9 @@ def main() -> None:
 
     for _ in range(args.count):
         resp = session.send(req)
-        resp.raise_for_status()
         print(resp)
+        print(resp.text)
+        resp.raise_for_status()
 
         if args.count == 1:
             for k, v in resp.headers.items():
