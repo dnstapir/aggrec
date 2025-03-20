@@ -17,7 +17,7 @@ $(BUILDINFO):
 openapi: $(OPENAPI)
 
 $(OPENAPI): $(DEPENDS)
-	poetry run python tools/export_openapi_yaml.py > $@
+	uv run python tools/export_openapi_yaml.py > $@
 
 container: $(DEPENDS)
 	docker buildx build -t $(CONTAINER) -t $(CONTAINER_BASE) .
@@ -26,21 +26,21 @@ push-container:
 	docker push $(CONTAINER)
 
 server: $(DEPENDS) $($(PUBLIC_KEYS))
-	poetry run aggrec_server --host 127.0.0.1 --port 8080 --debug
+	uv run aggrec_server --host 127.0.0.1 --port 8080 --debug
 
 test-client: test-client-p256 test-client-ed25519
 
 test-client-p256: test-private-p256.pem
 	openssl rand 1024 > random.bin
-	poetry run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
 	openssl rand 1024 > random.bin
-	poetry run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
-	poetry run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
-	poetry run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
 
 test-client-ed25519: test-private-ed25519.pem
 	openssl rand 1024 > random.bin
-	poetry run aggrec_client --http-key-id test-ed25519 --http-key-file $< random.bin
+	uv run aggrec_client --http-key-id test-ed25519 --http-key-file $< random.bin
 
 keys: clients/test-p256.pem clients/test-ed25519.pem
 
@@ -60,14 +60,14 @@ clients/test-ed25519.pem: clients test-private-ed25519.pem
 	openssl pkey -in test-private-ed25519.pem -pubout -out $@
 
 test: $(DEPENDS) $(PUBLIC_KEYS)
-	poetry run pytest --ruff --ruff-format
+	uv run pytest --ruff --ruff-format
 
 lint:
-	poetry run ruff check .
+	uv run ruff check .
 
 reformat:
-	poetry run ruff check --select I --fix .
-	poetry run ruff format .
+	uv run ruff check --select I --fix .
+	uv run ruff format .
 
 clean:
 	rm -f $(PUBLIC_KEYS) $(PRIVATE_KEYS)
@@ -75,4 +75,4 @@ clean:
 	rm -f $(BUILDINFO) $(OPENAPI)
 
 realclean: clean
-	poetry env remove --all
+	rm -fr .venv
