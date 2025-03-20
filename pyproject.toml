@@ -6,11 +6,11 @@ authors = [{name="Jakob Schlyter", email = "jakob@kirei.se"}]
 readme = "README.md"
 requires-python = ">=3.13,<4.0"
 dependencies = [
+    "dnstapir[opentelemetry,keymanager]@git+https://github.com/dnstapir/python-dnstapir.git#v1.5.1",
     "aiobotocore>=2.21.1",
     "aiomqtt>=2.3.0",
     "aniso8601>=10.0.0",
     "boto3>=1.37.1",
-    "dnstapir[keyman,opentelemetry]>=1.5.1",
     "fastapi>=0.115.11",
     "http-message-signatures>=0.5.0",
     "http-sf>=1.0.3",
@@ -34,9 +34,6 @@ aggrec_client = "aggrec.client:main"
 
 [tool.setuptools]
 packages = [ "aggrec" ]
-
-[tool.uv.sources]
-dnstapir = { git = "https://github.com/dnstapir/python-dnstapir.git", rev = "v1.5.1" }
 
 [build-system]
 requires = ["setuptools>=77"]
