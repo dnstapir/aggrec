@@ -1,6 +1,6 @@
 import hashlib
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import aniso8601
 import http_sf
@@ -130,7 +130,7 @@ class RequestVerifier:
 
 def rfc_3339_datetime_now() -> str:
     """Return current time(UTC) as ISO 8601 timestamp"""
-    return str(datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    return str(datetime.now(tz=datetime.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
 
 
 def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
@@ -142,8 +142,8 @@ def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
         raise ValueError("Start time must include timezone")
     if t2.tzinfo is None:
         raise ValueError("End time must include timezone")
-    t1 = t1.astimezone(timezone.utc)
-    t2 = t2.astimezone(timezone.utc)
+    t1 = t1.astimezone(datetime.UTC)
+    t2 = t2.astimezone(datetime.UTC)
     duration = timedelta(seconds=(t2 - t1).total_seconds())
     if duration.total_seconds() < 0:
         raise ValueError("Duration cannot be negative")

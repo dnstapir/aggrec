@@ -42,7 +42,7 @@ requires-dist = [
     { name = "aiomqtt", specifier = ">=2.3.0" },
     { name = "aniso8601", specifier = ">=10.0.0" },
     { name = "boto3", specifier = ">=1.37.1" },
-    { name = "dnstapir", extras = ["opentelemetry", "keymanager"], git = "https://github.com/dnstapir/python-dnstapir.git?rev=v1.5.1" },
+    { name = "dnstapir", extras = ["opentelemetry", "keymanager"], git = "https://github.com/dnstapir/python-dnstapir.git" },
     { name = "fastapi", specifier = ">=0.115.11" },
     { name = "http-message-signatures", specifier = ">=0.5.0" },
     { name = "http-sf", specifier = ">=1.0.3" },
@@ -370,7 +370,7 @@ wheels = [
 [[package]]
 name = "dnstapir"
 version = "1.5.1"
-source = { git = "https://github.com/dnstapir/python-dnstapir.git?rev=v1.5.1#dd96a7496e51f09b798fa03ae37272af1daee08d" }
+source = { git = "https://github.com/dnstapir/python-dnstapir.git#d230d0177a7d16d5a3d2569e5392c402511c98b3" }
 dependencies = [
     { name = "structlog" },
 ]

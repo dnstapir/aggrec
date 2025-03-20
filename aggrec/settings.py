@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Annotated
 
 from pydantic import AnyHttpUrl, BaseModel, Field, UrlConstraints
@@ -61,7 +61,7 @@ class S3(BaseModel):
     create_bucket: bool = False
 
     def get_bucket_name(self) -> str:
-        return datetime.now(tz=timezone.utc).strftime(self.bucket)
+        return datetime.now(tz=datetime.UTC).strftime(self.bucket)
 
 
 class Settings(BaseSettings):
