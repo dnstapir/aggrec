@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -56,9 +56,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Aggregate Sender")
 
-    default_interval = (
-        f"{datetime.now(tz=timezone.utc).isoformat(timespec='seconds')}/{DEFAULT_AGGREGATE_INTERVAL_DURATION}"
-    )
+    default_interval = f"{datetime.now(tz=UTC).isoformat(timespec='seconds')}/{DEFAULT_AGGREGATE_INTERVAL_DURATION}"
 
     parser.add_argument(
         "aggregate",
