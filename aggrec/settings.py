@@ -1,3 +1,4 @@
+import os
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -8,6 +9,8 @@ from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, Settings
 
 from dnstapir.key_cache import KeyCacheSettings
 from dnstapir.opentelemetry import OtlpSettings
+
+CONFIG_FILE = os.environ.get("AGGREC_CONFIG", "aggrec.toml")
 
 MqttUrl = Annotated[
     Url,
@@ -76,7 +79,7 @@ class Settings(BaseSettings):
 
     http: HttpSettings = Field(default=HttpSettings())
 
-    model_config = SettingsConfigDict(toml_file="aggrec.toml")
+    model_config = SettingsConfigDict(toml_file=CONFIG_FILE)
 
     @classmethod
     def settings_customise_sources(

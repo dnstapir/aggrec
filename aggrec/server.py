@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import aiobotocore.session
 import aiomqtt
@@ -24,7 +25,7 @@ from dnstapir.opentelemetry import configure_opentelemetry
 from dnstapir.starlette import LoggingMiddleware
 
 from . import OPENAPI_METADATA, __verbose_version__
-from .settings import MqttSettings, NatsSettings, Settings
+from .settings import CONFIG_FILE, MqttSettings, NatsSettings, Settings
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +225,12 @@ def main() -> None:
 
     setup_logging(json_logs=args.log_json, log_level="DEBUG" if args.debug else "INFO")
 
+    if not Path(CONFIG_FILE).is_file():
+        logger.critical("Configuration file %s not found", CONFIG_FILE)
+        raise SystemExit(1)
+
     logger.info("Starting Aggregate Receiver version %s", __verbose_version__)
+
     app = AggrecServer(settings=Settings())
 
     uvicorn.run(
