@@ -14,7 +14,7 @@ CONFIG_FILE = os.environ.get("AGGREC_CONFIG", "aggrec.toml")
 
 MqttUrl = Annotated[
     Url,
-    UrlConstraints(allowed_schemes=["mqtt", "mqtts"], default_port=1883, host_required=True),
+    UrlConstraints(allowed_schemes=["mqtt", "mqtts"], host_required=True),
 ]
 
 NatsUrl = Annotated[
@@ -24,7 +24,7 @@ NatsUrl = Annotated[
 
 MongodbUrl = Annotated[
     Url,
-    UrlConstraints(allowed_schemes=["mongodb", "mongodb+srv", "mongomock"], default_port=27017, host_required=True),
+    UrlConstraints(allowed_schemes=["mongodb", "mongodb+srv", "mongomock"], host_required=True),
 ]
 
 
