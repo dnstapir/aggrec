@@ -24,7 +24,7 @@ NatsUrl = Annotated[
 
 MongodbUrl = Annotated[
     Url,
-    UrlConstraints(allowed_schemes=["mongodb"], default_port=27017, host_required=True),
+    UrlConstraints(allowed_schemes=["mongodb", "mongodb+srv", "mongomock"], default_port=27017, host_required=True),
 ]
 
 
