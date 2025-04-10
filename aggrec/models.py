@@ -11,6 +11,7 @@ from .settings import Settings
 class AggregateType(str, Enum):
     histogram = "histogram"
     vector = "vector"
+    test = "test"
 
 
 class AggregateContentType(str, Enum):
