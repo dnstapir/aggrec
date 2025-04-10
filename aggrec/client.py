@@ -118,6 +118,7 @@ def main() -> None:
         default=1,
     )
     parser.add_argument("--debug", action="store_true", help="Enable debugging")
+    parser.add_argument("--get", action="store_true", help="Get after submit")
 
     args = parser.parse_args()
 
@@ -187,7 +188,7 @@ def main() -> None:
         else:
             print(resp.headers["location"])
 
-    if args.count == 1:
+    if args.get and args.count == 1:
         location = resp.headers["location"]
         resp = session.get(urljoin(args.server, location))
         resp.raise_for_status()
