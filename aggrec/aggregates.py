@@ -115,6 +115,11 @@ class AggregateMetadataResponse(BaseModel):
         )
 
 
+class HealthcheckResult(BaseModel):
+    status: str = Field(title="Status")
+    aggregates_count: int = Field(title="Number of aggregates in database")
+
+
 def get_http_headers(request: Request, covered_components_headers: list[str]) -> dict[str, str]:
     """Get dictionary of relevant metadata HTTP headers"""
 
@@ -457,3 +462,39 @@ async def get_aggregate_payload(
         )
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
+
+
+@router.get(
+    "/api/v1/healthcheck",
+    responses={
+        200: {"model": HealthcheckResult},
+    },
+    tags=["backend"],
+)
+async def healthcheck(
+    request: Request,
+) -> HealthcheckResult:
+    """Perform healthcheck with database and S3 access"""
+
+    try:
+        aggregates_count = len(AggregateMetadata.objects() or [])
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to connect to MongoDB",
+        ) from exc
+
+    try:
+        s3_bucket = request.app.settings.s3.get_bucket_name()
+        async with request.app.get_s3_client() as s3_client:
+            _ = await s3_client.head_bucket(Bucket=s3_bucket)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to connect to S3",
+        ) from exc
+
+    return HealthcheckResult(
+        status="OK",
+        aggregates_count=aggregates_count,
+    )
