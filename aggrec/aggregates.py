@@ -425,7 +425,7 @@ async def healthcheck(
     """Perform healthcheck with database and S3 access"""
 
     try:
-        aggregates_count = len(AggregateMetadata.objects() or [])
+        aggregates_count = AggregateMetadata.objects().count()
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
