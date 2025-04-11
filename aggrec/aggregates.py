@@ -1,13 +1,13 @@
 import asyncio
 import base64
 import hashlib
+import ipaddress
 import json
 import logging
 import re
 import uuid
 from contextlib import suppress
-from datetime import UTC, datetime
-from enum import Enum
+from datetime import UTC
 from typing import Annotated, Any
 from urllib.parse import urljoin
 
@@ -17,12 +17,12 @@ from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from opentelemetry import metrics, trace
-from pydantic import BaseModel, Field
 
 from aggrec.helpers import RequestVerifier
 
 from .db_models import AggregateMetadata
 from .helpers import parse_iso8601_interval, rfc_3339_datetime_now
+from .models import AggregateContentType, AggregateMetadataResponse, AggregateType, HealthcheckResult
 from .settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -67,52 +67,6 @@ METADATA_HTTP_HEADERS = [
 ]
 
 router = APIRouter()
-
-
-class AggregateType(str, Enum):
-    histogram = "histogram"
-    vector = "vector"
-
-
-class AggregateContentType(str, Enum):
-    parquet = "application/vnd.apache.parquet"
-    binary = "application/binary"
-
-
-class AggregateMetadataResponse(BaseModel):
-    aggregate_id: str = Field(title="Aggregate identifier", example="3b241101-e2bb-4255-8caf-4136c566a962")
-    aggregate_type: AggregateType = Field(title="Aggregate type", example="application/vnd.apache.parquet")
-    created: datetime = Field(title="Aggregate creation timestamp")
-    creator: str = Field(title="Aggregate creator")
-    headers: dict = Field(title="Dictionary of relevant HTTP headers")
-    content_type: str = Field(title="Content MIME type")
-    content_length: int = Field(title="Content length")
-    content_location: str = Field(title="Content location (URL)")
-    s3_bucket: str = Field(title="S3 bucket name")
-    s3_object_key: str = Field(title="S3 object key")
-    aggregate_interval_start: datetime | None = Field(default=None, title="Aggregate interval start")
-    aggregate_interval_duration: int | None = Field(default=None, title="Aggregate interval duration (seconds)")
-
-    @classmethod
-    def from_db_model(cls, metadata: AggregateMetadata, settings: Settings):
-        aggregate_id = str(metadata.id)
-        return cls(
-            aggregate_id=aggregate_id,
-            aggregate_type=metadata.aggregate_type.value,
-            aggregate_interval_start=metadata.aggregate_interval_start,
-            aggregate_interval_duration=metadata.aggregate_interval_duration,
-            created=metadata.id.generation_time,
-            creator=str(metadata.creator),
-            headers=metadata.http_headers,
-            content_type=metadata.content_type,
-            content_length=metadata.content_length,
-            content_location=urljoin(
-                str(settings.metadata_base_url),
-                f"/api/v1/aggregates/{aggregate_id}/payload",
-            ),
-            s3_bucket=metadata.s3_bucket,
-            s3_object_key=metadata.s3_object_key,
-        )
 
 
 def get_http_headers(request: Request, covered_components_headers: list[str]) -> dict[str, str]:
@@ -457,3 +411,50 @@ async def get_aggregate_payload(
         )
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
+
+
+@router.get(
+    "/api/v1/healthcheck",
+    responses={
+        200: {"model": HealthcheckResult},
+    },
+    tags=["backend"],
+)
+async def healthcheck(
+    request: Request,
+) -> HealthcheckResult:
+    """Perform healthcheck with database and S3 access"""
+
+    with suppress(ValueError):
+        if (
+            request.client
+            and request.client.host
+            and ipaddress.ip_address(request.client.host) not in request.app.settings.http.healthcheck_hosts
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not my physician",
+            )
+
+    try:
+        aggregates_count = AggregateMetadata.objects().count()
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to connect to MongoDB",
+        ) from exc
+
+    try:
+        s3_bucket = request.app.settings.s3.get_bucket_name()
+        async with request.app.get_s3_client() as s3_client:
+            _ = await s3_client.head_bucket(Bucket=s3_bucket)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unable to connect to S3",
+        ) from exc
+
+    return HealthcheckResult(
+        status="OK",
+        aggregates_count=aggregates_count,
+    )
