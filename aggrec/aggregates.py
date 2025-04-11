@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import hashlib
+import ipaddress
 import json
 import logging
 import re
@@ -423,6 +424,18 @@ async def healthcheck(
     request: Request,
 ) -> HealthcheckResult:
     """Perform healthcheck with database and S3 access"""
+
+    if request.client and request.client.host:
+        with suppress(ValueError):
+            client_address = ipaddress.ip_address(request.client.host)
+            for address in request.app.settings.http.healthcheck_hosts:
+                if client_address in address:
+                    break
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not my physician",
+                )
 
     try:
         aggregates_count = AggregateMetadata.objects().count()
