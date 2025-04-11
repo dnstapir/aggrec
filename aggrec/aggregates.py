@@ -425,15 +425,16 @@ async def healthcheck(
 ) -> HealthcheckResult:
     """Perform healthcheck with database and S3 access"""
 
-    if (
-        request.client
-        and request.client.host
-        and ipaddress.ip_address(request.client.host) not in request.app.settings.http.healthcheck_hosts
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not my physician",
-        )
+    with suppress(ValueError):
+        if (
+            request.client
+            and request.client.host
+            and ipaddress.ip_address(request.client.host) not in request.app.settings.http.healthcheck_hosts
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not my physician",
+            )
 
     try:
         aggregates_count = AggregateMetadata.objects().count()
