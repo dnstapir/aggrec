@@ -6,6 +6,7 @@ from mongoengine import DateTimeField, DictField, Document, EnumField, IntField,
 class AggregateType(Enum):
     HISTOGRAM = "histogram"
     VECTOR = "vector"
+    TEST = "test"
 
 
 class AggregateMetadata(Document):

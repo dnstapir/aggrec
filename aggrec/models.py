@@ -11,6 +11,7 @@ from .settings import Settings
 class AggregateType(str, Enum):
     histogram = "histogram"
     vector = "vector"
+    test = "test"
 
 
 class AggregateContentType(str, Enum):
@@ -20,7 +21,7 @@ class AggregateContentType(str, Enum):
 
 class AggregateMetadataResponse(BaseModel):
     aggregate_id: str = Field(title="Aggregate identifier", example="3b241101-e2bb-4255-8caf-4136c566a962")
-    aggregate_type: AggregateType = Field(title="Aggregate type", example="application/vnd.apache.parquet")
+    aggregate_type: AggregateType = Field(title="Aggregate type", example="histogram")
     created: datetime = Field(title="Aggregate creation timestamp")
     creator: str = Field(title="Aggregate creator")
     headers: dict = Field(title="Dictionary of relevant HTTP headers")
