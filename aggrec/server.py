@@ -231,7 +231,8 @@ def main() -> None:
 
     logger.info("Starting Aggregate Receiver version %s", __verbose_version__)
 
-    app = AggrecServer(settings=Settings())
+    settings = Settings()
+    app = AggrecServer(settings=settings)
 
     uvicorn.run(
         app,
