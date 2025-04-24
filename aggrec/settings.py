@@ -6,12 +6,13 @@ from typing import Annotated
 from pydantic import AnyHttpUrl, BaseModel, Field, UrlConstraints
 from pydantic.networks import IPvAnyAddress, IPvAnyNetwork
 from pydantic_core import Url
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, TomlConfigSettingsSource
+from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, TomlConfigSettingsSource
 
 from dnstapir.key_cache import KeyCacheSettings
 from dnstapir.opentelemetry import OtlpSettings
 
 CONFIG_FILE = os.environ.get("AGGREC_CONFIG", "aggrec.toml")
+ENV_PREFIX = "DNSTAPIR_AGGREC_"
 
 MqttUrl = Annotated[
     Url,
@@ -93,8 +94,6 @@ class Settings(BaseSettings):
 
     http: HttpSettings = Field(default=HttpSettings())
 
-    model_config = SettingsConfigDict(toml_file=CONFIG_FILE)
-
     @classmethod
     def settings_customise_sources(
         cls,
@@ -104,4 +103,16 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (TomlConfigSettingsSource(settings_cls),)
+        return (
+            EnvSettingsSource(
+                settings_cls,
+                env_prefix=ENV_PREFIX,
+                env_nested_delimiter="__",
+                env_ignore_empty=True,
+                case_sensitive=False,
+            ),
+            TomlConfigSettingsSource(
+                settings_cls,
+                toml_file=CONFIG_FILE,
+            ),
+        )
