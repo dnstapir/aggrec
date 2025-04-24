@@ -12,7 +12,7 @@ from dnstapir.key_cache import KeyCacheSettings
 from dnstapir.opentelemetry import OtlpSettings
 
 CONFIG_FILE = os.environ.get("AGGREC_CONFIG", "aggrec.toml")
-ENV_PREFIX = "DNSTAPIR_AGGREC_"
+ENV_PREFIX = "DNSTAPIR_AGGREC__"
 
 MqttUrl = Annotated[
     Url,
