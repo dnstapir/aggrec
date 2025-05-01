@@ -1,6 +1,6 @@
 [project]
 name = "aggrec"
-version = "1.1.0.dev5"
+dynamic = ["version"]
 description = "DNS TAPIR Aggregate Receiver"
 authors = [{name="Jakob Schlyter", email = "jakob@kirei.se"}]
 readme = "README.md"
@@ -30,12 +30,15 @@ repository = "https://github.com/dnstapir/nodeman.git"
 aggrec_server = "aggrec.server:main"
 aggrec_client = "aggrec.client:main"
 
-[tool.setuptools]
-packages = [ "aggrec" ]
-
 [build-system]
-requires = ["setuptools>=77"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [dependency-groups]
 dev = [
