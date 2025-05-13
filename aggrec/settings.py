@@ -11,7 +11,6 @@ from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSetti
 from dnstapir.key_cache import KeyCacheSettings
 from dnstapir.opentelemetry import OtlpSettings
 
-CONFIG_FILE = os.environ.get("AGGREC_CONFIG", "aggrec.toml")
 ENV_PREFIX = "AGGREC_"
 
 MqttUrl = Annotated[
@@ -113,6 +112,6 @@ class Settings(BaseSettings):
             ),
             TomlConfigSettingsSource(
                 settings_cls,
-                toml_file=CONFIG_FILE,
+                toml_file=os.environ.get("AGGREC_CONFIG", "aggrec.toml"),
             ),
         )
