@@ -1,7 +1,6 @@
 import asyncio
 import base64
 import hashlib
-import ipaddress
 import json
 import logging
 import re
@@ -22,7 +21,7 @@ from aggrec.helpers import RequestVerifier
 
 from .db_models import AggregateMetadata
 from .helpers import parse_iso8601_interval, rfc_3339_datetime_now
-from .models import AggregateContentType, AggregateMetadataResponse, AggregateType, HealthcheckResult
+from .models import AggregateContentType, AggregateMetadataResponse, AggregateType
 from .settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -411,51 +410,3 @@ async def get_aggregate_payload(
         )
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
-
-
-@router.get(
-    "/api/v1/healthcheck",
-    responses={
-        200: {"model": HealthcheckResult},
-    },
-    tags=["backend"],
-)
-async def healthcheck(
-    request: Request,
-) -> HealthcheckResult:
-    """Perform healthcheck with database and S3 access"""
-
-    if request.client and request.client.host:
-        with suppress(ValueError):
-            client_address = ipaddress.ip_address(request.client.host)
-            for address in request.app.settings.http.healthcheck_hosts:
-                if client_address in address:
-                    break
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You are not my physician",
-                )
-
-    try:
-        aggregates_count = AggregateMetadata.objects().count()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unable to connect to MongoDB",
-        ) from exc
-
-    try:
-        s3_bucket = request.app.settings.s3.get_bucket_name()
-        async with request.app.get_s3_client() as s3_client:
-            _ = await s3_client.head_bucket(Bucket=s3_bucket)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unable to connect to S3",
-        ) from exc
-
-    return HealthcheckResult(
-        status="OK",
-        aggregates_count=aggregates_count,
-    )
