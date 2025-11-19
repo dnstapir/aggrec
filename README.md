@@ -26,6 +26,11 @@ secret_access_key = "minioadmin"
 [mongodb]
 server =  "mongodb://localhost/aggregates"
 
+[http]
+trusted_hosts = ["127.0.0.1"]
+healthcheck_hosts = ["127.0.0.1"]
+stats_hosts = ["127.0.0.1", "192.168.0.0/16"]
+
 [mqtt]
 broker = "mqtt://localhost"
 topic = "aggregates"

@@ -1,6 +1,7 @@
 import hashlib
 import logging
 from datetime import UTC, datetime, timedelta
+from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_address
 
 import aniso8601
 import http_sf
@@ -148,3 +149,32 @@ def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
     if duration.total_seconds() < 0:
         raise ValueError("Duration cannot be negative")
     return t1, duration
+
+
+def check_client_access(
+    request: Request,
+    allowed_networks: list[IPv4Address | IPv6Address | IPv4Network | IPv6Network],
+) -> None:
+    """Check if client IP is allowed to access the resource"""
+
+    if request.client and request.client.host:
+        try:
+            client_address = ip_address(request.client.host)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid client IP address: {request.client.host}",
+            ) from exc
+
+        for entry in allowed_networks:
+            if (isinstance(entry, IPv4Address | IPv6Address) and client_address == entry) or (
+                isinstance(entry, IPv4Network | IPv6Network) and client_address in entry
+            ):
+                logging.debug("Allowed access for client %s", client_address)
+                return
+
+        logging.warning("Denied access for client %s", client_address)
+    else:
+        logging.warning("Denied access for unknown client")
+
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
