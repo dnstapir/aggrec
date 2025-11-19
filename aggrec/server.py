@@ -16,6 +16,7 @@ from opentelemetry import trace
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 import aggrec.aggregates
+import aggrec.creators
 import aggrec.extras
 import aggrec.healthcheck
 from dnstapir.key_cache import key_cache_from_settings
@@ -42,6 +43,7 @@ class AggrecServer(FastAPI):
         self.add_middleware(ProxyHeadersMiddleware, trusted_hosts=[str(x) for x in self.settings.http.trusted_hosts])
 
         self.include_router(aggrec.aggregates.router)
+        self.include_router(aggrec.creators.router)
         self.include_router(aggrec.healthcheck.router)
         self.include_router(aggrec.extras.router)
 
