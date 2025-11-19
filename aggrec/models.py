@@ -55,7 +55,7 @@ class AggregateMetadataResponse(BaseModel):
         )
 
 
-class CreatorInformation(BaseModel):
+class StatsCreatorInformation(BaseModel):
     creator: str = Field(title="Aggregate creator")
     last_aggregate_id: str = Field(title="Last seen aggregate identifier", examples=["67fe41d4f76c1bbc1d8b25ae"])
     last_seen: datetime = Field(title="Timestamp of last seen aggregate")
@@ -63,8 +63,8 @@ class CreatorInformation(BaseModel):
     aggregates_total_size: int = Field(title="Total size of aggregates created by this creator (in bytes)")
 
 
-class CreatorsResponse(BaseModel):
-    creators: list[CreatorInformation]
+class StatsCreatorsResponse(BaseModel):
+    creators: list[StatsCreatorInformation]
 
 
 class HealthcheckResult(BaseModel):

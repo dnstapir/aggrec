@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 
 from .db_models import AggregateMetadata
 from .helpers import check_client_access
-from .models import CreatorInformation, CreatorsResponse
+from .models import StatsCreatorInformation, StatsCreatorsResponse
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +34,13 @@ GET_CREATORS_PIPELINE = [
     "/api/v1/stats/creators",
     tags=["backend"],
 )
-def get_stats_creators(request: Request) -> CreatorsResponse:
+def get_stats_creators(request: Request) -> StatsCreatorsResponse:
     """Get statistics for all creators."""
 
     check_client_access(request, request.app.settings.http.stats_hosts)
 
     creators = [
-        CreatorInformation(
+        StatsCreatorInformation(
             creator=obj["_id"],
             last_aggregate_id=str(obj["last_id"]),
             last_seen=obj["last_id"].generation_time,
@@ -50,4 +50,4 @@ def get_stats_creators(request: Request) -> CreatorsResponse:
         for obj in AggregateMetadata.objects().aggregate(GET_CREATORS_PIPELINE)
     ]
 
-    return CreatorsResponse(creators=creators)
+    return StatsCreatorsResponse(creators=creators)
