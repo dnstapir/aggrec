@@ -67,7 +67,7 @@ class StatsCreatorsResponse(BaseModel):
     creators: list[StatsCreatorInformation]
 
 
-class StatsAggregatessResponse(BaseModel):
+class StatsAggregatesResponse(BaseModel):
     aggregates_count: int = Field(title="Number of aggregates")
     aggregates_total_size: int = Field(title="Total size of all aggregates (in bytes)")
 
