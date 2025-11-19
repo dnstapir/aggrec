@@ -1,7 +1,7 @@
 import hashlib
-import ipaddress
 import logging
 from datetime import UTC, datetime, timedelta
+from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_address
 
 import aniso8601
 import http_sf
@@ -153,25 +153,27 @@ def parse_iso8601_interval(interval: str) -> tuple[datetime, timedelta]:
 
 def check_client_access(
     request: Request,
-    allowed_networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network],
+    allowed_networks: list[IPv4Address | IPv6Address | IPv4Network | IPv6Network],
 ) -> None:
     """Check if client IP is allowed to access the resource"""
 
     if request.client and request.client.host:
         try:
-            client_address = ipaddress.ip_address(request.client.host)
+            client_address = ip_address(request.client.host)
         except ValueError as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid client IP address: {request.client.host}",
             ) from exc
 
-        for network in allowed_networks:
-            if client_address in network:
-                logging.debug("Allowed access for client IP %s", client_address)
+        for entry in allowed_networks:
+            if (isinstance(entry, IPv4Address | IPv6Address) and client_address == entry) or (
+                isinstance(entry, IPv4Network | IPv6Network) and client_address in entry
+            ):
+                logging.debug("Allowed access for client %s", client_address)
                 return
 
-        logging.warning("Denied access for client IP %s", client_address)
+        logging.warning("Denied access for client %s", client_address)
     else:
         logging.warning("Denied access for unknown client")
 
