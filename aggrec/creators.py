@@ -13,15 +13,14 @@ router = APIRouter()
 
 GET_CREATORS_LAST_PIPELINE = [
     {
-        "$group": {
-            "_id": "$creator",
-            "last_id": {"$last": "$_id"},
+        "$sort": {
+            "_id": -1,
         }
     },
     {
-        "$project": {
-            "creator": "$creator",
-            "last_id": "$last_id",
+        "$group": {
+            "_id": "$creator",
+            "last_id": {"$first": "$_id"},
         }
     },
     {
