@@ -14,9 +14,6 @@ router = APIRouter()
 
 @router.get(
     "/api/v1/healthcheck",
-    responses={
-        200: {"model": HealthcheckResult},
-    },
     tags=["backend"],
 )
 async def healthcheck(
