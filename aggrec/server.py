@@ -17,6 +17,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 import aggrec.aggregates
 import aggrec.extras
+import aggrec.healthcheck
 from dnstapir.key_cache import key_cache_from_settings
 from dnstapir.key_resolver import key_resolver_from_client_database
 from dnstapir.logging import setup_logging
@@ -41,6 +42,7 @@ class AggrecServer(FastAPI):
         self.add_middleware(ProxyHeadersMiddleware, trusted_hosts=[str(x) for x in self.settings.http.trusted_hosts])
 
         self.include_router(aggrec.aggregates.router)
+        self.include_router(aggrec.healthcheck.router)
         self.include_router(aggrec.extras.router)
 
         if self.settings.otlp:
