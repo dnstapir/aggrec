@@ -10,7 +10,12 @@ class AggregateType(Enum):
 
 
 class AggregateMetadata(Document):
-    meta = {"collection": "aggregates"}
+    meta = {
+        "collection": "aggregates",
+        "indexes": [
+            {"fields": ["creator"]},
+        ],
+    }
 
     creator = StringField()
 
