@@ -74,6 +74,12 @@ def get_stats_aggregates(request: Request) -> StatsAggregatesResponse:
 
     objects = list(AggregateMetadata.objects().aggregate(GET_STATS_AGGREGATES_PIPELINE))
 
+    if not objects:
+        return StatsAggregatesResponse(
+            aggregates_count=0,
+            aggregates_total_size=0,
+        )
+
     return StatsAggregatesResponse(
         aggregates_count=objects[0]["aggregates_count"],
         aggregates_total_size=objects[0]["aggregates_total_size"],
