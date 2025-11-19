@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Pipeline to get creators with their aggregate statistics
-GET_CREATORS_PIPELINE = [
+GET_STATS_CREATORS_PIPELINE = [
     {
         "$sort": {"_id": -1},
     },
@@ -29,7 +29,7 @@ GET_CREATORS_PIPELINE = [
     },
 ]
 
-GET_AGGREGATES_PIPELINE = [
+GET_STATS_AGGREGATES_PIPELINE = [
     {
         "$group": {
             "_id": "",
@@ -57,7 +57,7 @@ def get_stats_creators(request: Request) -> StatsCreatorsResponse:
             aggregates_count=obj["aggregates_count"],
             aggregates_total_size=obj["aggregates_total_size"],
         )
-        for obj in AggregateMetadata.objects().aggregate(GET_CREATORS_PIPELINE)
+        for obj in AggregateMetadata.objects().aggregate(GET_STATS_CREATORS_PIPELINE)
     ]
 
     return StatsCreatorsResponse(creators=creators)
@@ -72,7 +72,7 @@ def get_stats_aggregates(request: Request) -> StatsAggregatessResponse:
 
     check_client_access(request, request.app.settings.http.stats_hosts)
 
-    objects = list(AggregateMetadata.objects().aggregate(GET_AGGREGATES_PIPELINE))
+    objects = list(AggregateMetadata.objects().aggregate(GET_STATS_AGGREGATES_PIPELINE))
 
     return StatsAggregatessResponse(
         aggregates_count=objects[0]["aggregates_count"],
