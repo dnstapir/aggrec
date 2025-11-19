@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 
 from .db_models import AggregateMetadata
 from .helpers import check_client_access
-from .models import StatsCreatorInformation, StatsCreatorsResponse
+from .models import StatsAggregatessResponse, StatsCreatorInformation, StatsCreatorsResponse
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,16 @@ GET_CREATORS_PIPELINE = [
     },
 ]
 
+GET_AGGREGATES_PIPELINE = [
+    {
+        "$group": {
+            "_id": "",
+            "aggregates_count": {"$sum": 1},
+            "aggregates_total_size": {"$sum": "$content_length"},
+        }
+    }
+]
+
 
 @router.get(
     "/api/v1/stats/creators",
@@ -51,3 +61,20 @@ def get_stats_creators(request: Request) -> StatsCreatorsResponse:
     ]
 
     return StatsCreatorsResponse(creators=creators)
+
+
+@router.get(
+    "/api/v1/stats/aggregates",
+    tags=["backend"],
+)
+def get_stats_aggregates(request: Request) -> StatsAggregatessResponse:
+    """Get statistics for all aggregates."""
+
+    check_client_access(request, request.app.settings.http.stats_hosts)
+
+    objects = list(AggregateMetadata.objects().aggregate(GET_AGGREGATES_PIPELINE))
+
+    return StatsAggregatessResponse(
+        aggregates_count=objects[0]["aggregates_count"],
+        aggregates_total_size=objects[0]["aggregates_total_size"],
+    )
