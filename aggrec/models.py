@@ -20,7 +20,7 @@ class AggregateContentType(str, Enum):
 
 
 class AggregateMetadataResponse(BaseModel):
-    aggregate_id: str = Field(title="Aggregate identifier", example="3b241101-e2bb-4255-8caf-4136c566a962")
+    aggregate_id: str = Field(title="Aggregate identifier", example="67fe41d4f76c1bbc1d8b25ae")
     aggregate_type: AggregateType = Field(title="Aggregate type", example="histogram")
     created: datetime = Field(title="Aggregate creation timestamp")
     creator: str = Field(title="Aggregate creator")
