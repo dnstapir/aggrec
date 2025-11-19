@@ -25,7 +25,7 @@ GET_CREATORS_LAST_PIPELINE = [
     },
     {
         "$sort": {
-            "creator": 1,
+            "_id": 1,
         }
     },
 ]
