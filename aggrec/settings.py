@@ -35,7 +35,17 @@ class HttpSettings(BaseModel):
             IPv4Address("127.0.0.1"),
         ]
     )
-    healthcheck_hosts: list[IPvAnyNetwork] = Field(
+    healthcheck_hosts: list[IPvAnyAddress | IPvAnyNetwork] = Field(
+        default=[
+            IPv4Network("127.0.0.1/32"),
+            IPv4Network("10.0.0.0/8"),
+            IPv4Network("172.16.0.0/12"),
+            IPv4Network("192.168.0.0/16"),
+            IPv6Network("fe80::/10"),
+        ]
+    )
+
+    stats_hosts: list[IPvAnyAddress | IPvAnyNetwork] = Field(
         default=[
             IPv4Network("127.0.0.1/32"),
             IPv4Network("10.0.0.0/8"),

@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Request
 
 from .db_models import AggregateMetadata
+from .helpers import check_client_access
 from .models import CreatorInformation, CreatorsResponse
 
 logger = logging.getLogger(__name__)
@@ -30,13 +31,13 @@ GET_CREATORS_PIPELINE = [
 
 
 @router.get(
-    "/api/v1/creators",
+    "/api/v1/stats/creators",
     tags=["backend"],
 )
-def get_creators(
-    request: Request,
-) -> CreatorsResponse:
-    """Get a list of all creators."""
+def get_stats_creators(request: Request) -> CreatorsResponse:
+    """Get statistics for all creators."""
+
+    check_client_access(request, request.app.settings.http.stats_hosts)
 
     creators = [
         CreatorInformation(
