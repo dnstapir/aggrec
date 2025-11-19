@@ -20,8 +20,8 @@ class AggregateContentType(str, Enum):
 
 
 class AggregateMetadataResponse(BaseModel):
-    aggregate_id: str = Field(title="Aggregate identifier", example="67fe41d4f76c1bbc1d8b25ae")
-    aggregate_type: AggregateType = Field(title="Aggregate type", example="histogram")
+    aggregate_id: str = Field(title="Aggregate identifier", examples=["67fe41d4f76c1bbc1d8b25ae"])
+    aggregate_type: AggregateType = Field(title="Aggregate type", examples=["histogram"])
     created: datetime = Field(title="Aggregate creation timestamp")
     creator: str = Field(title="Aggregate creator")
     headers: dict = Field(title="Dictionary of relevant HTTP headers")
@@ -57,7 +57,7 @@ class AggregateMetadataResponse(BaseModel):
 
 class CreatorInformation(BaseModel):
     creator: str = Field(title="Aggregate creator")
-    last_aggregate_id: str = Field(title="Last seen aggregate identifier", example="67fe41d4f76c1bbc1d8b25ae")
+    last_aggregate_id: str = Field(title="Last seen aggregate identifier", examples=["67fe41d4f76c1bbc1d8b25ae"])
     last_seen: datetime = Field(title="Timestamp of last seen aggregate")
     aggregates_count: int = Field(title="Number of aggregates created by this creator")
     aggregates_total_size: int = Field(title="Total size of aggregates created by this creator (in bytes)")
