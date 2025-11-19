@@ -39,7 +39,7 @@ async def healthcheck(
             )
     else:
         # Always allow health check if no client IP is provided
-        pass
+        logger.warning("No client IP provided in healthcheck request")
 
     try:
         aggregates_count = AggregateMetadata.objects().count()
