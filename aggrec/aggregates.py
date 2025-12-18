@@ -224,19 +224,27 @@ Derived components MUST NOT be included in the signature input.
         res = await http_request_verifier.verify(request)
 
     creator = res.parameters.get("keyid")
-    logger.info("Create aggregate request by keyid=%s", creator)
+
+    if not creator:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Creator missing in signature parameters")
+
+    logger_extra: dict[str, str] = {"aggregate_creator": creator}
+
+    logger.info("Create aggregate request by keyid=%s", creator, extra=logger_extra)
 
     http_headers = get_http_headers(request, res.covered_components.keys())
 
     # if we receive an aggregate already seen, return existing metadata
     if metadata := AggregateMetadata.objects(content_digest=content_digest).first():
-        logger.warning("Received duplicate aggregate from %s", creator)
+        logger.warning("Received duplicate aggregate from %s", creator, extra=logger_extra)
         aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
         metadata_location = get_aggregate_location(metadata.id)
         return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
 
     aggregate_id = ObjectId()
     metadata_location = get_aggregate_location(aggregate_id)
+
+    logger_extra["aggregate_id"] = str(aggregate_id)
 
     span.set_attribute("aggregate.id", str(aggregate_id))
     span.set_attribute("aggregate.type", aggregate_type.value)
@@ -290,9 +298,9 @@ Derived components MUST NOT be included in the signature input.
         try:
             with pymongo.timeout(request.app.settings.mongodb.timeout):
                 metadata.save()
-            logger.info("Metadata saved: %s", metadata.id)
+            logger.info("Metadata saved: %s", metadata.id, extra=logger_extra)
         except Exception as exc:
-            logger.error("Failed to save metadata %s", metadata.id, exc_info=exc)
+            logger.error("Failed to save metadata %s", metadata.id, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Database error") from exc
 
     with tracer.start_as_current_span("s3.put_object"):
@@ -311,9 +319,11 @@ Derived components MUST NOT be included in the signature input.
                     ChecksumSHA256=content_checksum,
                     Body=content,
                 )
-                logger.info("Object created: %s", metadata.s3_object_key)
+                logger.info("Object created: %s", metadata.s3_object_key, extra=logger_extra)
             except Exception as exc:
-                logger.error("Failed to create object, deleting metadata %s", metadata.id, exc_info=exc)
+                logger.error(
+                    "Failed to create object, deleting metadata %s", metadata.id, extra=logger_extra, exc_info=exc
+                )
                 metadata.delete()
                 raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 error") from exc
 
