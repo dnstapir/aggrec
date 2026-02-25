@@ -1,5 +1,5 @@
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from urllib.parse import urljoin
 
 from pydantic import BaseModel, Field
@@ -8,13 +8,13 @@ from .db_models import AggregateMetadata
 from .settings import Settings
 
 
-class AggregateType(str, Enum):
+class AggregateType(StrEnum):
     histogram = "histogram"
     vector = "vector"
     test = "test"
 
 
-class AggregateContentType(str, Enum):
+class AggregateContentType(StrEnum):
     parquet = "application/vnd.apache.parquet"
     binary = "application/binary"
 
