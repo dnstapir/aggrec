@@ -5,10 +5,15 @@ import uuid
 import cryptography.hazmat.primitives.asymmetric.ec as ec
 import cryptography.hazmat.primitives.asymmetric.rsa as rsa
 import http_sf
+import httpx
 import pytest
-import requests
 from cryptography.hazmat.primitives.asymmetric import ed25519
-from http_message_signatures import HTTPMessageSigner, HTTPSignatureAlgorithm, HTTPSignatureKeyResolver, algorithms
+from http_message_signatures import (
+    HTTPMessageSigner,
+    HTTPSignatureAlgorithm,
+    HTTPSignatureKeyResolver,
+    algorithms,
+)
 from starlette.datastructures import Headers
 from starlette.requests import Request
 
@@ -19,16 +24,16 @@ def build_starlette_request(
     method: str = "GET",
     server: str = "www.example.com",
     path: str = "/",
-    headers: dict = None,
-    body: str = None,
+    headers: dict[str, str] | None = None,
+    content: bytes | None = None,
 ) -> Request:
-    if headers is None:
-        headers = {}
+    """Build a Starlette Request object for testing purposes."""
+
     request = Request(
         {
             "type": "http",
             "path": path,
-            "headers": Headers(headers).raw,
+            "headers": Headers(headers or {}).raw,
             "http_version": "1.1",
             "method": method,
             "scheme": "https",
@@ -36,12 +41,13 @@ def build_starlette_request(
             "server": (server, 443),
         }
     )
-    if body:
+    if content:
 
-        async def request_body():
-            return body
+        async def request_body() -> bytes:
+            return content
 
         request.body = request_body
+
     return request
 
 
@@ -75,12 +81,13 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
     key_id = "test"
     covered_component_ids = ["content-type", "content-digest", "content-length"]
 
-    req = requests.Request("POST", "https://localhost/test", data=os.urandom(1024))
+    client = httpx.Client(verify=False)
 
-    req = req.prepare()
+    req = client.build_request("POST", "https://localhost/test", content=os.urandom(1024))
+
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = "application/binary"
-    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.body).digest()})
+    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.content).digest()})
 
     key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
     signer = HTTPMessageSigner(signature_algorithm=algorithm, key_resolver=key_resolver)
@@ -100,7 +107,7 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
         server="localhost",
         path="/test",
         headers=req.headers,
-        body=req.body,
+        content=req.content,
     )
 
     result = await verifier.verify(request)
