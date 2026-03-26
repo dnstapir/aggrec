@@ -3,6 +3,7 @@ import gzip
 import hashlib
 import json
 import logging
+import ssl
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,10 +12,14 @@ from urllib.parse import urljoin
 import cryptography.hazmat.primitives.asymmetric.ec as ec
 import cryptography.hazmat.primitives.asymmetric.rsa as rsa
 import http_sf
-import requests
+import httpx
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from http_message_signatures import HTTPMessageSigner, HTTPSignatureKeyResolver, algorithms
+from http_message_signatures import (
+    HTTPMessageSigner,
+    HTTPSignatureKeyResolver,
+    algorithms,
+)
 from jwcrypto.jwk import JWK
 
 DEFAULT_AGGREGATE_INTERVAL_DURATION = "PT1M"
@@ -127,12 +132,13 @@ def main() -> None:
     else:
         logging.basicConfig(level=logging.INFO)
 
-    session = requests.Session()
-
+    ctx = ssl.create_default_context()
     if args.tls_cert_file and args.tls_key_file:
-        session.cert = (args.tls_cert_file, args.tls_key_file)
+        ctx.load_cert_chain(certfile=args.tls_cert_file, keyfile=args.tls_key_file)
     elif args.tls_cert_file:
-        session.cert = args.tls_cert_file
+        ctx.load_cert_chain(certfile=args.tls_cert_file)
+
+    client = httpx.Client(http2=True, verify=ctx)
 
     key_id = args.http_key_id
     if args.http_key_file and args.http_key_file.name.endswith(".json"):
@@ -143,21 +149,19 @@ def main() -> None:
     covered_component_ids = DEFAULT_COVERED_COMPONENT_IDS
 
     with open(args.aggregate, "rb") as fp:
-        req = requests.Request(
+        req = client.build_request(
             "POST",
             urljoin(args.server, f"/api/v1/aggregate/{args.type}"),
-            data=gzip.compress(fp.read()) if args.gzip else fp.read(),
+            content=gzip.compress(fp.read()) if args.gzip else fp.read(),
         )
         if args.gzip:
             req.headers["Content-Encoding"] = "gzip"
             covered_component_ids.append("content-encoding")
 
     req.headers["Aggregate-Interval"] = args.interval
-
-    req = req.prepare()
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
-    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.body).digest()})
+    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.content).digest()})
 
     if key_id:
         key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
@@ -175,7 +179,7 @@ def main() -> None:
     print("")
 
     for _ in range(args.count):
-        resp = session.send(req)
+        resp = client.send(req)
         print(resp)
         print(resp.text)
         resp.raise_for_status()
@@ -190,13 +194,13 @@ def main() -> None:
 
     if args.get and args.count == 1:
         location = resp.headers["location"]
-        resp = session.get(urljoin(args.server, location))
+        resp = client.get(urljoin(args.server, location))
         resp.raise_for_status()
         print(resp)
         print(resp.headers)
         print(json.dumps(json.loads(resp.content), indent=4))
 
-        resp = session.get(resp.json()["content_location"])
+        resp = client.get(resp.json()["content_location"])
         resp.raise_for_status()
         print(resp)
         print(resp.headers)

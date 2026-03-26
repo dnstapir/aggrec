@@ -19,8 +19,8 @@ dependencies = [
     "pydantic-settings>=2.8.1",
     "pydantic>=2.10.6",
     "pyyaml>=6.0.2",
-    "requests>=2.32.3",
     "uvicorn>=0.34.0",
+    "httpx[http2]>=0.28.1",
 ]
 
 [tool.uv.sources]
