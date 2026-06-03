@@ -3,8 +3,6 @@ volumes:
   mongo:
 
 services:
-  # http://127.0.0.1:9001/
-  # rustfsadmin:rustfsadmin
   s3:
     image: rustfs/rustfs:latest
     command: |
@@ -12,8 +10,8 @@ services:
       --address :9000
       --console-enable
       --console-address :9001
-      --access-key rustfsadmin
-      --secret-key rustfsadmin
+      --access-key access_key_id
+      --secret-key secret_access_key
     ports:
       - 127.0.0.1:9000:9000/tcp
       - 127.0.0.1:9001:9001/tcp

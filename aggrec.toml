@@ -7,8 +7,8 @@ metadata_base_url= "http://127.0.0.1:8080"
 endpoint_url = "http://localhost:9000"
 bucket = "aggregates"
 create_bucket = true
-access_key_id = "rustfsadmin"
-secret_access_key = "rustfsadmin"
+access_key_id = "access_key_id"
+secret_access_key = "secret_access_key"
 
 [mongodb]
 server =  "mongodb://localhost/aggregates"

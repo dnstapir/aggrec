@@ -20,8 +20,8 @@ clients_database = "https://nodeman.example.com/api/v1/node/{key_id}/public_key"
 endpoint_url = "http://localhost:9000"
 bucket = "aggregates"
 create_bucket = true
-access_key_id = "minioadmin"
-secret_access_key = "minioadmin"
+access_key_id = "access_key_id"
+secret_access_key = "secret_access_key"
 
 [mongodb]
 server =  "mongodb://localhost/aggregates"
