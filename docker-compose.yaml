@@ -1,18 +1,22 @@
 volumes:
- minio:
- mongo:
+  rustfs:
+  mongo:
 
 services:
-  # http://127.0.0.1:9001/
-  # minioadmin:minioadmin
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
+  s3:
+    image: rustfs/rustfs:latest
+    command: |
+      /data
+      --address :9000
+      --console-enable
+      --console-address :9001
+      --access-key access_key_id
+      --secret-key secret_access_key
     ports:
       - 127.0.0.1:9000:9000/tcp
       - 127.0.0.1:9001:9001/tcp
     volumes:
-      - minio:/data
+      - rustfs:/data
   mongo:
     image: mongo:latest
     ports:
@@ -51,10 +55,10 @@ services:
     image: otel/opentelemetry-collector:latest
     command: ["--config=/etc/otel-collector-config.yaml"]
     ports:
-      - "4317:4317"  # OTLP gRPC receiver
-      - "4318:4318"  # OTLP HTTP receiver
-      - "8888:8888"  # Prometheus metrics exposed by the collector
-      - "8889:8889"  # Prometheus exporter metrics
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+      - "8888:8888" # Prometheus metrics exposed by the collector
+      - "8889:8889" # Prometheus exporter metrics
     configs:
       - source: otel-collector-config.yaml
         target: /etc/otel-collector-config.yaml
