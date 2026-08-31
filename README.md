@@ -1,10 +1,10 @@
 # DNS TAPIR Aggregate Receiver
 
-This repository contains the DNS TAPIR Aggregate Receiver, a server component use for submitting and retrieving TAPIR aggregates.
+This repository contains the DNS TAPIR Aggregate Receiver, a server component used for submitting and retrieving TAPIR aggregates.
 
-Submitted aggregates are stored in a S3 compatible object store with its metadata stored in MongoDB. New aggregates are announced via MQTT.
+Submitted aggregates are stored in a S3 compatible object store with its metadata stored in MongoDB. New aggregates are announced via MQTT or NATS.
 
-Client are assumed to be authenticated using mTLS and all submitted data must be signed using [HTTP Message Signatures](https://tools.ietf.org/html/draft-ietf-httpbis-message-signatures). Public keys for allowed signers are stored in PEM format in the `CLIENTS_DATABASE` directory as `{key_id}.pem`.
+Clients are assumed to be authenticated using mTLS (via a front end proxy), and all submitted data must be signed using [HTTP Message Signatures (RFC 9421)](https://www.rfc-editor.org/info/rfc9421/). Public keys for allowed signers are fetched from [DNS TAPIR Node Manager](https://github.com/dnstapir/nodeman/) via HTTP or stored in PEM format in the `CLIENTS_DATABASE` directory as `{key_id}.pem`.
 
 
 ## Configuration
@@ -57,8 +57,3 @@ Documentation at `/docs` and `/redoc`.
 ## Testing
 
 `docker-compose.yaml` contains a basic stack for running tests.
-
-
-## References
-
-- [DNS TAPIR Aggregate Receiver API v1](aggrec/openapi.yaml)
