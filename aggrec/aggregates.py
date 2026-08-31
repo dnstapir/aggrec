@@ -327,7 +327,14 @@ Derived components MUST NOT be included in the signature input.
                 creator,
                 extra={**logger_extra, "aggregate_id": str(metadata.id)},
             )
-            return Response(status_code=status.HTTP_409_CONFLICT)
+            # If the existing metadata is not pending, return 201 Created with the existing metadata location
+            if existing_metadata := AggregateMetadata.objects(
+                content_digest=content_digest, pending_expire=None
+            ).first():
+                metadata_location = get_aggregate_location(existing_metadata.id)
+                return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
+            else:
+                return Response(status_code=status.HTTP_409_CONFLICT)
         except Exception as exc:
             logger.error("Failed to save metadata %s", metadata.id, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Database error") from exc
