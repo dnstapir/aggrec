@@ -78,6 +78,7 @@ class NatsSettings(BaseModel):
 class MongoDB(BaseModel):
     server: MongodbUrl | None = Field(default="mongodb://localhost/aggregates")
     timeout: int = Field(default=5)
+    pending_timeout: int = Field(default=60 * 60)  # 1 hour
 
 
 class S3(BaseModel):
