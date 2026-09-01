@@ -222,9 +222,9 @@ Derived components MUST NOT be included in the signature input.
 ):
     span = trace.get_current_span()
 
-    required_signed_components = REQUIRED_SIGNED_COMPONENTS
-    if aggregate_interval:
-        required_signed_components = required_signed_components.add("aggregate_interval")
+    required_signed_components = (
+        REQUIRED_SIGNED_COMPONENTS | {"aggregate-interval"} if aggregate_interval else REQUIRED_SIGNED_COMPONENTS
+    )
 
     with tracer.start_as_current_span("http_request_verifier"):
         http_request_verifier = RequestVerifier(
