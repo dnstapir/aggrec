@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
 from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_address
 
@@ -51,9 +52,11 @@ class RequestVerifier:
         self,
         key_resolver: KeyResolver,
         algorithm: HTTPSignatureAlgorithm | None = None,
+        required_headers: Iterable[str] | None = None,
     ):
         self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
         self.http_key_resolver = CustomHTTPSignatureKeyResolver(key_resolver)
+        self.covered_components = set([f'"{header}"' for header in (required_headers or [])])
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     async def verify_content_digest(self, result: VerifyResult, request: Request):
@@ -109,6 +112,13 @@ class RequestVerifier:
             msg = "Unable to verify HTTP signature"
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_400_BAD_REQUEST, msg) from exc
+
+        if self.covered_components:
+            for result in results:
+                if not all(header in result.covered_components for header in self.covered_components):
+                    msg = "Missing required headers in signature"
+                    self.logger.warning(msg, extra=logger_extra)
+                    raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
         for result in results:
             try:

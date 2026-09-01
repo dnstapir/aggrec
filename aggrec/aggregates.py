@@ -65,6 +65,9 @@ METADATA_HTTP_HEADERS = [
     "Signature-Input",
 ]
 
+
+REQUIRED_SIGNED_HEADERS = set(["content-length", "content-type", "content-digest"])
+
 router = APIRouter()
 
 
@@ -220,7 +223,10 @@ Derived components MUST NOT be included in the signature input.
     span = trace.get_current_span()
 
     with tracer.start_as_current_span("http_request_verifier"):
-        http_request_verifier = RequestVerifier(key_resolver=request.app.key_resolver)
+        http_request_verifier = RequestVerifier(
+            key_resolver=request.app.key_resolver,
+            required_headers=REQUIRED_SIGNED_HEADERS,
+        )
         res = await http_request_verifier.verify(request)
 
     creator = res.parameters.get("keyid")
