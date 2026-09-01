@@ -57,7 +57,7 @@ def get_stats_creators(request: Request) -> StatsCreatorsResponse:
             aggregates_count=obj["aggregates_count"],
             aggregates_total_size=obj["aggregates_total_size"],
         )
-        for obj in AggregateMetadata.objects().aggregate(GET_STATS_CREATORS_PIPELINE)
+        for obj in AggregateMetadata.objects(pending_expire=None).aggregate(GET_STATS_CREATORS_PIPELINE)
     ]
 
     return StatsCreatorsResponse(creators=creators)
@@ -72,7 +72,7 @@ def get_stats_aggregates(request: Request) -> StatsAggregatesResponse:
 
     check_client_access(request, request.app.settings.http.stats_hosts)
 
-    objects = list(AggregateMetadata.objects().aggregate(GET_STATS_AGGREGATES_PIPELINE))
+    objects = list(AggregateMetadata.objects(pending_expire=None).aggregate(GET_STATS_AGGREGATES_PIPELINE))
 
     if not objects:
         return StatsAggregatesResponse(
