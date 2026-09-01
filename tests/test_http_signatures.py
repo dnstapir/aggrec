@@ -90,12 +90,12 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
     verifier = RequestVerifier(
         algorithm=algorithm,
         key_resolver=key_resolver,
-        required_headers=["content-type", "content-digest", "content-length"],
+        required_signed_components=["content-type", "content-digest", "content-length"],
     )
     verifier2 = RequestVerifier(
         algorithm=algorithm,
         key_resolver=key_resolver,
-        required_headers=["user-agent"],
+        required_signed_components=["user-agent"],
     )
 
     signer.sign(

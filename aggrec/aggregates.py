@@ -66,7 +66,7 @@ METADATA_HTTP_HEADERS = [
 ]
 
 
-REQUIRED_SIGNED_HEADERS = set(["content-length", "content-type", "content-digest"])
+REQUIRED_SIGNED_COMPONENTS = set(["content-length", "content-type", "content-digest"])
 
 router = APIRouter()
 
@@ -222,10 +222,14 @@ Derived components MUST NOT be included in the signature input.
 ):
     span = trace.get_current_span()
 
+    required_signed_components = REQUIRED_SIGNED_COMPONENTS
+    if aggregate_interval:
+        required_signed_components = required_signed_components.add("aggregate_interval")
+
     with tracer.start_as_current_span("http_request_verifier"):
         http_request_verifier = RequestVerifier(
             key_resolver=request.app.key_resolver,
-            required_headers=REQUIRED_SIGNED_HEADERS,
+            required_signed_components=required_signed_components,
         )
         res = await http_request_verifier.verify(request)
 

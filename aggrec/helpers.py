@@ -52,11 +52,11 @@ class RequestVerifier:
         self,
         key_resolver: KeyResolver,
         algorithm: HTTPSignatureAlgorithm | None = None,
-        required_headers: Iterable[str] | None = None,
+        required_signed_components: Iterable[str] | None = None,
     ):
         self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
         self.http_key_resolver = CustomHTTPSignatureKeyResolver(key_resolver)
-        self.covered_components = set([f'"{header}"' for header in (required_headers or [])])
+        self.covered_components = set([f'"{component}"' for component in (required_signed_components or [])])
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     async def verify_content_digest(self, result: VerifyResult, request: Request):
