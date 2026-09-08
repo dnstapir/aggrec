@@ -5,15 +5,10 @@ import uuid
 import cryptography.hazmat.primitives.asymmetric.ec as ec
 import cryptography.hazmat.primitives.asymmetric.rsa as rsa
 import http_sf
-import httpx
+import httpx2
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ed25519
-from http_message_signatures import (
-    HTTPMessageSigner,
-    HTTPSignatureAlgorithm,
-    HTTPSignatureKeyResolver,
-    algorithms,
-)
+from http_message_signatures import HTTPMessageSigner, HTTPSignatureAlgorithm, HTTPSignatureKeyResolver, algorithms
 from starlette.datastructures import Headers
 from starlette.requests import Request
 
@@ -81,7 +76,7 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
     key_id = "test"
     covered_component_ids = ["content-type", "content-digest", "content-length"]
 
-    client = httpx.Client(verify=False)
+    client = httpx2.Client(verify=False)
 
     req = client.build_request("POST", "https://localhost/test", content=os.urandom(1024))
 

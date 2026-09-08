@@ -12,14 +12,10 @@ from urllib.parse import urljoin
 import cryptography.hazmat.primitives.asymmetric.ec as ec
 import cryptography.hazmat.primitives.asymmetric.rsa as rsa
 import http_sf
-import httpx
+import httpx2
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from http_message_signatures import (
-    HTTPMessageSigner,
-    HTTPSignatureKeyResolver,
-    algorithms,
-)
+from http_message_signatures import HTTPMessageSigner, HTTPSignatureKeyResolver, algorithms
 from jwcrypto.jwk import JWK
 
 DEFAULT_AGGREGATE_INTERVAL_DURATION = "PT1M"
@@ -138,7 +134,7 @@ def main() -> None:
     elif args.tls_cert_file:
         ctx.load_cert_chain(certfile=args.tls_cert_file)
 
-    client = httpx.Client(http2=True, verify=ctx)
+    client = httpx2.Client(http2=True, verify=ctx)
 
     key_id = args.http_key_id
     if args.http_key_file and args.http_key_file.name.endswith(".json"):
