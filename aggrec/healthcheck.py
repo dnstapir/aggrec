@@ -21,7 +21,7 @@ async def healthcheck(request: Request) -> HealthcheckResult:
     check_client_access(request, request.app.settings.http.healthcheck_hosts)
 
     try:
-        aggregates_count = AggregateMetadata.objects().count()
+        aggregates_count = AggregateMetadata.objects(pending_expire=None).count()
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
