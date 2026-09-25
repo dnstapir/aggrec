@@ -337,17 +337,17 @@ Derived components MUST NOT be included in the signature input.
                     await s3_client.create_bucket(Bucket=s3_bucket)
 
             try:
-                await s3_client.put_object(
-                    Bucket=s3_bucket,
-                    Key=metadata.s3_object_key,
-                    Metadata=s3_object_metadata,
-                    ContentType=content_type,
-                    ContentLength=metadata.content_length,
-                    ChecksumSHA256=content_checksum,
-                    Body=content,
-                )
-                logger.info("Object created: %s", metadata.s3_object_key, extra=logger_extra)
-
+                async with asyncio.timeout(request.app.settings.s3.timeout):
+                    await s3_client.put_object(
+                        Bucket=s3_bucket,
+                        Key=metadata.s3_object_key,
+                        Metadata=s3_object_metadata,
+                        ContentType=content_type,
+                        ContentLength=metadata.content_length,
+                        ChecksumSHA256=content_checksum,
+                        Body=content,
+                    )
+                    logger.info("Object created: %s", metadata.s3_object_key, extra=logger_extra)
             except Exception as exc:
                 logger.error(
                     "Failed to create object, deleting metadata %s", metadata.id, extra=logger_extra, exc_info=exc

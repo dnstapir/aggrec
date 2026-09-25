@@ -87,6 +87,7 @@ class S3(BaseModel):
     secret_access_key: str | None = None
     bucket: str = Field(default="aggrec")
     create_bucket: bool = False
+    timeout: int = Field(default=300)  # 5 minutes
 
     def get_bucket_name(self) -> str:
         return datetime.now(tz=UTC).strftime(self.bucket)
