@@ -10,6 +10,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from http_message_signatures import HTTPMessageSigner, HTTPSignatureAlgorithm, HTTPSignatureKeyResolver, algorithms
 from starlette.datastructures import Headers
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 
 from aggrec.helpers import RequestVerifier
@@ -86,7 +87,16 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
 
     key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
     signer = HTTPMessageSigner(signature_algorithm=algorithm, key_resolver=key_resolver)
-    verifier = RequestVerifier(algorithm=algorithm, key_resolver=key_resolver)
+    verifier = RequestVerifier(
+        algorithm=algorithm,
+        key_resolver=key_resolver,
+        required_signed_components=["content-type", "content-digest", "content-length"],
+    )
+    verifier2 = RequestVerifier(
+        algorithm=algorithm,
+        key_resolver=key_resolver,
+        required_signed_components=["user-agent"],
+    )
 
     signer.sign(
         req,
@@ -107,6 +117,10 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
 
     result = await verifier.verify(request)
     print(result)
+
+    with pytest.raises(HTTPException) as exc_info:
+        result = await verifier2.verify(request)
+    assert exc_info.value.status_code == 401
 
 
 @pytest.mark.asyncio
