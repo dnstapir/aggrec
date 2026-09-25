@@ -177,7 +177,7 @@ def get_s3_object_metadata(metadata: AggregateMetadata) -> dict[str, Any]:
             },
         },
         409: {
-            "description": "Conflict: Aggregate already exists",
+            "description": "Conflict: Identical aggregate pending",
             "content": None,
         },
     },
