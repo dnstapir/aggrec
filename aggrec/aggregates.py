@@ -366,7 +366,8 @@ Derived components MUST NOT be included in the signature input.
 
         # Finalize metadata by clearing pending expire
         metadata.pending_expire = None
-        metadata.save()
+        with pymongo.timeout(request.app.settings.mongodb.timeout):
+            metadata.save()
 
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
     aggregates_by_creator_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
