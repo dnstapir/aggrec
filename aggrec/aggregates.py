@@ -68,6 +68,9 @@ METADATA_HTTP_HEADERS = [
 
 REQUIRED_SIGNED_COMPONENTS = set(["content-length", "content-type", "content-digest"])
 
+# TODO: Add aggregate-interval to the list of conditional signed componentss once EDM has been updated
+CONDITIONAL_SIGNED_COMPONENTS = set(["content-encoding"])
+
 router = APIRouter()
 
 
@@ -209,6 +212,7 @@ The following HTTP headers MUST be signed:
 - Content-Length
 - Content-Type
 - Content-Digest
+- Content-Encoding
 
 Derived components MUST NOT be included in the signature input.
 """,
@@ -222,14 +226,13 @@ Derived components MUST NOT be included in the signature input.
 ):
     span = trace.get_current_span()
 
-    required_signed_components = (
-        REQUIRED_SIGNED_COMPONENTS | {"aggregate-interval"} if aggregate_interval else REQUIRED_SIGNED_COMPONENTS
-    )
+    required_signed_components = REQUIRED_SIGNED_COMPONENTS | {
+        h for h in CONDITIONAL_SIGNED_COMPONENTS if h in request.headers
+    }
 
     with tracer.start_as_current_span("http_request_verifier"):
         http_request_verifier = RequestVerifier(
-            key_resolver=request.app.key_resolver,
-            required_signed_components=required_signed_components,
+            key_resolver=request.app.key_resolver, required_signed_components=required_signed_components
         )
         res = await http_request_verifier.verify(request)
 
