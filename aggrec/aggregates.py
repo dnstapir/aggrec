@@ -239,28 +239,6 @@ Derived components MUST NOT be included in the signature input.
 
     http_headers = get_http_headers(request, res.covered_components.keys())
 
-    # if we receive an aggregate already seen, return existing metadata
-    if metadata := AggregateMetadata.objects(content_digest=content_digest).first():
-        if metadata.pending_expire:
-            # If the metadata is still pending, we treat it as a duplicate and return 409 Conflict
-            logger.warning(
-                "Received request for pending aggregate from %s",
-                creator,
-                extra={**logger_extra, "aggregate_id": str(metadata.id)},
-            )
-            return Response(status_code=status.HTTP_409_CONFLICT)
-        logger.warning(
-            "Received duplicate aggregate from %s",
-            creator,
-            extra={
-                **logger_extra,
-                "aggregate_id": str(metadata.id),
-            },
-        )
-        aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
-        metadata_location = get_aggregate_location(metadata.id)
-        return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
-
     aggregate_id = ObjectId()
     metadata_location = get_aggregate_location(aggregate_id)
 
@@ -321,20 +299,33 @@ Derived components MUST NOT be included in the signature input.
                 metadata.save()
             logger.info("Metadata saved: %s", metadata.id, extra=logger_extra)
         except NotUniqueError:
-            # If the metadata is still pending, we treat it as a duplicate and return 409 Conflict
-            logger.warning(
-                "Received request for pending aggregate from %s",
-                creator,
-                extra={**logger_extra, "aggregate_id": str(metadata.id)},
-            )
-            # If the existing metadata is not pending, return 201 Created with the existing metadata location
-            if existing_metadata := AggregateMetadata.objects(
-                content_digest=content_digest, pending_expire=None
-            ).first():
-                metadata_location = get_aggregate_location(existing_metadata.id)
-                return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
+            if existing_metadata := AggregateMetadata.objects(content_digest=content_digest).first():
+                if existing_metadata.pending_expire:
+                    # If the existing metadata is still pending, we should not accept a new request for it.
+                    logger.warning(
+                        "Received request for pending aggregate from %s",
+                        creator,
+                        extra={**logger_extra, "aggregate_id": str(metadata.id)},
+                    )
+                    return Response(status_code=status.HTTP_409_CONFLICT)
+
+                else:
+                    # If the existing metadata is not pending, it means we have already seen this aggregate before.
+                    logger.info(
+                        "Received duplicate aggregate from %s",
+                        creator,
+                        extra={**logger_extra, "aggregate_id": str(existing_metadata.id)},
+                    )
+                    aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
+                    metadata_location = get_aggregate_location(existing_metadata.id)
+                    return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
             else:
-                return Response(status_code=status.HTTP_409_CONFLICT)
+                # This should not happen: we have a NotUniqueError, but the existing metadata is missing
+                logger.error("Inconsistent metadata state")
+                return Response(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    content="Inconsistent metadata",
+                )
         except Exception as exc:
             logger.error("Failed to save metadata %s", metadata.id, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Database error") from exc
