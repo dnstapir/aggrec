@@ -39,6 +39,13 @@ class AggrecServer(FastAPI):
         self.settings = settings
         super().__init__(**OPENAPI_METADATA, lifespan=self.lifespan)
 
+        if settings.s3.timeout > settings.mongodb.pending_timeout:
+            self.logger.warning(
+                "S3 timeout (%s) is greater than MongoDB pending timeout (%s)",
+                settings.s3.timeout,
+                settings.mongodb.pending_timeout,
+            )
+
         self.add_middleware(LoggingMiddleware)
         self.add_middleware(ProxyHeadersMiddleware, trusted_hosts=[str(x) for x in self.settings.http.trusted_hosts])
 
