@@ -68,7 +68,7 @@ METADATA_HTTP_HEADERS = [
 
 REQUIRED_SIGNED_COMPONENTS = set(["content-length", "content-type", "content-digest"])
 
-# TODO: Add aggregate-interval to the list of conditional signed componentss once EDM has been updated
+# TODO: Add aggregate-interval to the list of conditional signed components once EDM has been updated
 CONDITIONAL_SIGNED_COMPONENTS = set(["content-encoding"])
 
 router = APIRouter()
