@@ -66,10 +66,10 @@ METADATA_HTTP_HEADERS = [
 ]
 
 
-REQUIRED_SIGNED_COMPONENTS = set(["content-length", "content-type", "content-digest"])
+REQUIRED_SIGNED_COMPONENTS: set[str] = {"content-length", "content-type", "content-digest"}
 
 # TODO: Add aggregate-interval to the list of conditional signed components once EDM has been updated
-CONDITIONAL_SIGNED_COMPONENTS = set(["content-encoding"])
+CONDITIONAL_SIGNED_COMPONENTS: set[str] = {"content-encoding"}
 
 router = APIRouter()
 
@@ -77,7 +77,7 @@ router = APIRouter()
 def get_http_headers(request: Request, covered_components_headers: list[str]) -> dict[str, str]:
     """Get dictionary of relevant metadata HTTP headers"""
 
-    relevant_headers = set([header.lower() for header in METADATA_HTTP_HEADERS])
+    relevant_headers: set[str] = {header.lower() for header in METADATA_HTTP_HEADERS}
 
     for header in covered_components_headers:
         if match := re.match(r"^\"([^@].+)\"$", header):

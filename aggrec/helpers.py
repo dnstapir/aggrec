@@ -56,7 +56,7 @@ class RequestVerifier:
     ):
         self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
         self.http_key_resolver = CustomHTTPSignatureKeyResolver(key_resolver)
-        self.covered_components = set([f'"{component}"' for component in (required_signed_components or [])])
+        self.covered_components: set[str] = {f'"{component}"' for component in (required_signed_components or [])}
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     async def verify_content_digest(self, result: VerifyResult, request: Request):
