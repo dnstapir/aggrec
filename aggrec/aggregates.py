@@ -6,7 +6,7 @@ import logging
 import re
 import uuid
 from contextlib import suppress
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import urljoin
 
@@ -15,6 +15,7 @@ import pymongo
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
+from mongoengine import NotUniqueError
 from opentelemetry import metrics, trace
 
 from aggrec.helpers import RequestVerifier
@@ -180,7 +181,11 @@ def get_s3_object_metadata(metadata: AggregateMetadata) -> dict[str, Any]:
                     "schema": {"type": "string", "format": "uri"},
                 },
             },
-        }
+        },
+        409: {
+            "description": "Conflict: Identical aggregate pending",
+            "content": None,
+        },
     },
     tags=["client"],
 )
@@ -247,13 +252,6 @@ Derived components MUST NOT be included in the signature input.
 
     http_headers = get_http_headers(request, res.covered_components.keys())
 
-    # if we receive an aggregate already seen, return existing metadata
-    if metadata := AggregateMetadata.objects(content_digest=content_digest).first():
-        logger.warning("Received duplicate aggregate from %s", creator, extra=logger_extra)
-        aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
-        metadata_location = get_aggregate_location(metadata.id)
-        return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
-
     aggregate_id = ObjectId()
     metadata_location = get_aggregate_location(aggregate_id)
 
@@ -303,6 +301,7 @@ Derived components MUST NOT be included in the signature input.
 
     metadata.content_length = actual_content_length
     metadata.s3_object_key = get_s3_object_key(metadata)
+    metadata.pending_expire = datetime.now(tz=UTC) + timedelta(seconds=request.app.settings.mongodb.pending_timeout)
 
     s3_object_metadata = get_s3_object_metadata(metadata)
     logger.debug("S3 object metadata: %s", s3_object_metadata)
@@ -312,6 +311,33 @@ Derived components MUST NOT be included in the signature input.
             with pymongo.timeout(request.app.settings.mongodb.timeout):
                 metadata.save()
             logger.info("Metadata saved: %s", metadata.id, extra=logger_extra)
+        except NotUniqueError:
+            if existing_metadata := AggregateMetadata.objects(content_digest=content_digest).first():
+                if existing_metadata.pending_expire:
+                    # If the existing metadata is still pending, we should not accept a new request for it.
+                    logger.warning(
+                        "Received request for pending aggregate from %s",
+                        creator,
+                        extra={**logger_extra, "aggregate_id": str(existing_metadata.id)},
+                    )
+                    return Response(status_code=status.HTTP_409_CONFLICT)
+
+                else:
+                    # If the existing metadata is not pending, it means we have already seen this aggregate before.
+                    logger.info(
+                        "Received duplicate aggregate from %s",
+                        creator,
+                        extra={**logger_extra, "aggregate_id": str(existing_metadata.id)},
+                    )
+                    aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
+                    metadata_location = get_aggregate_location(existing_metadata.id)
+                    return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
+            else:
+                logger.error("Inconsistent metadata state")
+                return Response(
+                    status_code=status.HTTP_409_CONFLICT,
+                    content="Inconsistent metadata",
+                )
         except Exception as exc:
             logger.error("Failed to save metadata %s", metadata.id, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Database error") from exc
@@ -323,22 +349,29 @@ Derived components MUST NOT be included in the signature input.
                     await s3_client.create_bucket(Bucket=s3_bucket)
 
             try:
-                await s3_client.put_object(
-                    Bucket=s3_bucket,
-                    Key=metadata.s3_object_key,
-                    Metadata=s3_object_metadata,
-                    ContentType=content_type,
-                    ContentLength=metadata.content_length,
-                    ChecksumSHA256=content_checksum,
-                    Body=content,
-                )
-                logger.info("Object created: %s", metadata.s3_object_key, extra=logger_extra)
+                async with asyncio.timeout(request.app.settings.s3.timeout):
+                    await s3_client.put_object(
+                        Bucket=s3_bucket,
+                        Key=metadata.s3_object_key,
+                        Metadata=s3_object_metadata,
+                        ContentType=content_type,
+                        ContentLength=metadata.content_length,
+                        ChecksumSHA256=content_checksum,
+                        Body=content,
+                    )
             except Exception as exc:
                 logger.error(
                     "Failed to create object, deleting metadata %s", metadata.id, extra=logger_extra, exc_info=exc
                 )
                 metadata.delete()
                 raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 error") from exc
+
+            logger.info("Object created: %s", metadata.s3_object_key, extra=logger_extra)
+
+        # Finalize metadata by clearing pending expire
+        metadata.pending_expire = None
+        with pymongo.timeout(request.app.settings.mongodb.timeout):
+            metadata.save()
 
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
     aggregates_by_creator_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
@@ -381,7 +414,7 @@ def get_aggregate_metadata(
     except bson.errors.InvalidId as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
 
-    if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
+    if metadata := AggregateMetadata.objects(id=aggregate_object_id, pending_expire=None).first():
         return AggregateMetadataResponse.from_db_model(metadata, request.app.settings)
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
@@ -416,7 +449,7 @@ async def get_aggregate_payload(
     except bson.errors.InvalidId as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
 
-    if metadata := AggregateMetadata.objects(id=aggregate_object_id).first():
+    if metadata := AggregateMetadata.objects(id=aggregate_object_id, pending_expire=None).first():
         with tracer.start_as_current_span("s3.get_object"):
             async with request.app.get_s3_client() as s3_client:
                 s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)

@@ -14,6 +14,7 @@ class AggregateMetadata(Document):
         "collection": "aggregates",
         "indexes": [
             {"fields": ["creator"]},
+            {"fields": ["pending_expire"], "expireAfterSeconds": 0},
         ],
     }
 
@@ -32,3 +33,5 @@ class AggregateMetadata(Document):
 
     aggregate_interval_start = DateTimeField()
     aggregate_interval_duration = IntField()
+
+    pending_expire = DateTimeField()
