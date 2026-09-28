@@ -65,13 +65,19 @@ METADATA_HTTP_HEADERS = [
     "Signature-Input",
 ]
 
+
+REQUIRED_SIGNED_COMPONENTS: set[str] = {"content-length", "content-type", "content-digest"}
+
+# TODO: Add aggregate-interval to the list of conditional signed components once EDM has been updated
+CONDITIONAL_SIGNED_COMPONENTS: set[str] = {"content-encoding"}
+
 router = APIRouter()
 
 
 def get_http_headers(request: Request, covered_components_headers: list[str]) -> dict[str, str]:
     """Get dictionary of relevant metadata HTTP headers"""
 
-    relevant_headers = set([header.lower() for header in METADATA_HTTP_HEADERS])
+    relevant_headers: set[str] = {header.lower() for header in METADATA_HTTP_HEADERS}
 
     for header in covered_components_headers:
         if match := re.match(r"^\"([^@].+)\"$", header):
@@ -206,6 +212,7 @@ The following HTTP headers MUST be signed:
 - Content-Length
 - Content-Type
 - Content-Digest
+- Content-Encoding (if present)
 
 Derived components MUST NOT be included in the signature input.
 """,
@@ -219,8 +226,14 @@ Derived components MUST NOT be included in the signature input.
 ):
     span = trace.get_current_span()
 
+    required_signed_components = REQUIRED_SIGNED_COMPONENTS | {
+        h for h in CONDITIONAL_SIGNED_COMPONENTS if h in request.headers
+    }
+
     with tracer.start_as_current_span("http_request_verifier"):
-        http_request_verifier = RequestVerifier(key_resolver=request.app.key_resolver)
+        http_request_verifier = RequestVerifier(
+            key_resolver=request.app.key_resolver, required_signed_components=required_signed_components
+        )
         res = await http_request_verifier.verify(request)
 
     creator = res.parameters.get("keyid")
