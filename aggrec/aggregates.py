@@ -212,7 +212,7 @@ The following HTTP headers MUST be signed:
 - Content-Length
 - Content-Type
 - Content-Digest
-- Content-Encoding
+- Content-Encoding (if present)
 
 Derived components MUST NOT be included in the signature input.
 """,
