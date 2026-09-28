@@ -305,7 +305,7 @@ Derived components MUST NOT be included in the signature input.
                     logger.warning(
                         "Received request for pending aggregate from %s",
                         creator,
-                        extra={**logger_extra, "aggregate_id": str(metadata.id)},
+                        extra={**logger_extra, "aggregate_id": str(existing_metadata.id)},
                     )
                     return Response(status_code=status.HTTP_409_CONFLICT)
 
@@ -320,10 +320,9 @@ Derived components MUST NOT be included in the signature input.
                     metadata_location = get_aggregate_location(existing_metadata.id)
                     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
             else:
-                # This should not happen: we have a NotUniqueError, but the existing metadata is missing
                 logger.error("Inconsistent metadata state")
                 return Response(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    status_code=status.HTTP_409_CONFLICT,
                     content="Inconsistent metadata",
                 )
         except Exception as exc:
@@ -347,13 +346,14 @@ Derived components MUST NOT be included in the signature input.
                         ChecksumSHA256=content_checksum,
                         Body=content,
                     )
-                    logger.info("Object created: %s", metadata.s3_object_key, extra=logger_extra)
             except Exception as exc:
                 logger.error(
                     "Failed to create object, deleting metadata %s", metadata.id, extra=logger_extra, exc_info=exc
                 )
                 metadata.delete()
                 raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 error") from exc
+
+            logger.info("Object created: %s", metadata.s3_object_key, extra=logger_extra)
 
         # Finalize metadata by clearing pending expire
         metadata.pending_expire = None
