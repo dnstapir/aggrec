@@ -443,7 +443,7 @@ def get_aggregate_metadata(
 async def get_aggregate_payload(
     aggregate_id: str,
     request: Request,
-) -> bytes:
+) -> StreamingResponse:
     try:
         aggregate_object_id = ObjectId(aggregate_id)
     except bson.errors.InvalidId as exc:
