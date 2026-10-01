@@ -88,6 +88,7 @@ class S3(BaseModel):
     bucket: str = Field(default="aggrec")
     create_bucket: bool = False
     timeout: int = Field(default=300)  # 5 minutes
+    stream_chunk_size: int = Field(default=64 * 1024)  # 64 KB
 
     def get_bucket_name(self) -> str:
         return datetime.now(tz=UTC).strftime(self.bucket)
