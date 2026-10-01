@@ -13,6 +13,7 @@ from urllib.parse import urljoin
 
 import bson
 import pymongo
+from aiobotocore.response import AioStreamingBody
 from botocore.exceptions import ClientError
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -68,7 +69,6 @@ METADATA_HTTP_HEADERS = [
     "Signature-Input",
 ]
 
-S3_STREAM_CHUNK_SIZE = 64 * 1024  # 64 KB
 
 REQUIRED_SIGNED_COMPONENTS: set[str] = {"content-length", "content-type", "content-digest"}
 
@@ -169,6 +169,18 @@ def get_s3_object_metadata(metadata: AggregateMetadata) -> dict[str, Any]:
             else {}
         ),
     }
+
+
+async def get_s3_stream_payload(
+    body: AioStreamingBody,
+    exit_stack: AsyncExitStack,
+    chunk_size: int,
+) -> AsyncIterator[bytes]:
+    """Get S3 stream payload as an async iterator of bytes."""
+    async with exit_stack:
+        exit_stack.push_async_callback(body.aclose)
+        async for chunk in body.iter_chunks(chunk_size):
+            yield chunk
 
 
 @router.post(
@@ -464,10 +476,10 @@ async def get_aggregate_payload(
         except ClientError as exc:
             await exit_stack.aclose()
             if error_code := exc.response.get("Error", {}).get("Code"):
-                if error_code in ("NoSuchBucket"):
+                if error_code in ["NoSuchBucket"]:
                     logger.error("S3 bucket not found: %s", metadata.s3_bucket)
                     raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR) from exc
-                if error_code in ("NoSuchKey"):
+                if error_code in ["NoSuchKey"]:
                     logger.error("S3 object not found: %s/%s", metadata.s3_bucket, metadata.s3_object_key)
                     raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
             logger.error("Failed to get S3 object: %s", str(exc))
@@ -476,21 +488,20 @@ async def get_aggregate_payload(
             await exit_stack.aclose()
             raise
 
-        async def stream_payload() -> AsyncIterator[bytes]:
-            async with exit_stack:
-                body = s3_obj["Body"]
-                exit_stack.push_async_callback(body.aclose)
-                async for chunk in body.iter_chunks(S3_STREAM_CHUNK_SIZE):
-                    yield chunk
-
         metadata_location = get_aggregate_location(metadata.id)
 
+        body: AioStreamingBody = s3_obj["Body"]
+
         return StreamingResponse(
-            content=stream_payload(),
+            content=get_s3_stream_payload(
+                body=body,
+                exit_stack=exit_stack,
+                chunk_size=request.app.settings.s3.stream_chunk_size,
+            ),
             media_type=metadata.content_type,
             headers={
                 "Link": f'{metadata_location}; rel="about"',
-                "Content-Length": str(metadata.content_length),
+                "Content-Length": str(s3_obj["ContentLength"]),
             },
         )
 
