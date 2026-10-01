@@ -115,11 +115,11 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
         content=req.content,
     )
 
-    result = await verifier.verify(request)
+    result = await verifier.verify(request, content=req.content)
     print(result)
 
     with pytest.raises(HTTPException) as exc_info:
-        await verifier2.verify(request)
+        await verifier2.verify(request, content=req.content)
     assert exc_info.value.status_code == 401
 
 
