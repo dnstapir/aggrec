@@ -168,6 +168,23 @@ def get_s3_object_metadata(metadata: AggregateMetadata) -> dict[str, Any]:
     }
 
 
+async def read_body_with_limit(request: Request, max_length: int | None) -> bytes:
+    """Read request body, aborting with 413 as soon as it exceeds max_length"""
+
+    chunks: list[bytes] = []
+    length = 0
+
+    async for chunk in request.stream():
+        chunks.append(chunk)
+        length += len(chunk)
+        if max_length is not None and length > max_length:
+            raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Content length exceeds the maximum allowed")
+
+    # Cache body so later calls to request.body() return it (same as Starlette does internally)
+    request._body = b"".join(chunks)
+    return request._body
+
+
 @router.post(
     "/api/v1/aggregate/{aggregate_type}",
     status_code=201,
@@ -235,6 +252,19 @@ Derived components MUST NOT be included in the signature input.
         h for h in CONDITIONAL_SIGNED_COMPONENTS if h in request.headers
     }
 
+    max_content_length = request.app.settings.http.max_content_length
+
+    if max_content_length is not None and content_length > max_content_length:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"Header content length ({content_length}) exceeds the maximum allowed",
+        )
+
+    # Read body before signature verification (which needs it for Content-Digest),
+    # enforcing the limit while streaming since Content-Length may not bound the body
+    # (e.g. when combined with Transfer-Encoding: chunked)
+    await read_body_with_limit(request, max_content_length)
+
     with tracer.start_as_current_span("http_request_verifier"):
         http_request_verifier = RequestVerifier(
             key_resolver=request.app.key_resolver, required_signed_components=required_signed_components
@@ -289,14 +319,14 @@ Derived components MUST NOT be included in the signature input.
     )
 
     content = await request.body()
+    actual_content_length = len(content)
+
     content_checksum = base64.b64encode(hashlib.sha256(content).digest()).decode()
 
-    actual_content_length = len(content)
-    reported_content_length = int(request.headers["Content-Length"])
-    if actual_content_length != reported_content_length:
+    if actual_content_length != content_length:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            f"Content-Length header ({reported_content_length}) does not match actual content length ({actual_content_length})",
+            f"Content-Length header ({content_length}) does not match actual content length ({actual_content_length})",
         )
 
     metadata.content_length = actual_content_length
