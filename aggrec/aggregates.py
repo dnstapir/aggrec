@@ -5,7 +5,6 @@ import json
 import logging
 import re
 import uuid
-from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, suppress
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
@@ -20,6 +19,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
 from mongoengine import NotUniqueError
 from opentelemetry import metrics, trace
+from starlette.types import Receive, Scope, Send
 
 from aggrec.helpers import RequestVerifier
 
@@ -171,16 +171,18 @@ def get_s3_object_metadata(metadata: AggregateMetadata) -> dict[str, Any]:
     }
 
 
-async def get_s3_stream_payload(
-    body: AioStreamingBody,
-    exit_stack: AsyncExitStack,
-    chunk_size: int,
-) -> AsyncIterator[bytes]:
-    """Get S3 stream payload as an async iterator of bytes."""
-    async with exit_stack:
-        exit_stack.push_async_callback(body.aclose)
-        async for chunk in body.iter_chunks(chunk_size):
-            yield chunk
+class S3StreamingResponse(StreamingResponse):
+    """StreamingResponse that releases S3 resources even if the body is never iterated."""
+
+    def __init__(self, *args: Any, exit_stack: AsyncExitStack, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.exit_stack = exit_stack
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            await self.exit_stack.aclose()
 
 
 @router.post(
@@ -473,6 +475,9 @@ async def get_aggregate_payload(
                 s3_client = await exit_stack.enter_async_context(request.app.get_s3_client())
                 async with asyncio.timeout(request.app.settings.s3.timeout):
                     s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
+                body: AioStreamingBody = s3_obj["Body"]
+                # Callbacks run LIFO: body is closed before the S3 client
+                exit_stack.push_async_callback(body.aclose)
         except ClientError as exc:
             await exit_stack.aclose()
             if error_code := exc.response.get("Error", {}).get("Code"):
@@ -490,14 +495,9 @@ async def get_aggregate_payload(
 
         metadata_location = get_aggregate_location(metadata.id)
 
-        body: AioStreamingBody = s3_obj["Body"]
-
-        return StreamingResponse(
-            content=get_s3_stream_payload(
-                body=body,
-                exit_stack=exit_stack,
-                chunk_size=request.app.settings.s3.stream_chunk_size,
-            ),
+        return S3StreamingResponse(
+            content=body.iter_chunks(request.app.settings.s3.stream_chunk_size),
+            exit_stack=exit_stack,
             media_type=metadata.content_type,
             headers={
                 "Link": f'{metadata_location}; rel="about"',
