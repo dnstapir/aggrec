@@ -453,7 +453,6 @@ async def get_aggregate_payload(
         with tracer.start_as_current_span("s3.get_object"):
             async with request.app.get_s3_client() as s3_client:
                 s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
-
         metadata_location = get_aggregate_location(metadata.id)
 
         return StreamingResponse(
