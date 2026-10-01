@@ -5,13 +5,15 @@ import json
 import logging
 import re
 import uuid
-from contextlib import suppress
+from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack, suppress
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 from urllib.parse import urljoin
 
 import bson
 import pymongo
+from botocore.exceptions import ClientError
 from bson.objectid import ObjectId
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import StreamingResponse
@@ -26,6 +28,7 @@ from .models import AggregateContentType, AggregateMetadataResponse, AggregateTy
 from .settings import Settings
 
 logger = logging.getLogger(__name__)
+
 
 tracer = trace.get_tracer("aggrec.tracer")
 meter = metrics.get_meter("aggrec.meter")
@@ -55,7 +58,6 @@ aggregates_nats_queue_drops = meter.create_counter(
     description="NATS messages dropped due to full queue",
 )
 
-
 METADATA_HTTP_HEADERS = [
     "User-Agent",
     "Content-Length",
@@ -66,6 +68,7 @@ METADATA_HTTP_HEADERS = [
     "Signature-Input",
 ]
 
+S3_STREAM_CHUNK_SIZE = 64 * 1024  # 64 KB
 
 REQUIRED_SIGNED_COMPONENTS: set[str] = {"content-length", "content-type", "content-digest"}
 
@@ -450,19 +453,41 @@ async def get_aggregate_payload(
         raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id, pending_expire=None).first():
-        with tracer.start_as_current_span("s3.get_object"):
-            async with request.app.get_s3_client() as s3_client:
-                s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
+        # The S3 client must stay open until the body has been fully streamed,
+        # so its lifetime is handed over to the response body iterator.
+        exit_stack = AsyncExitStack()
+        try:
+            with tracer.start_as_current_span("s3.get_object"):
+                s3_client = await exit_stack.enter_async_context(request.app.get_s3_client())
+                async with asyncio.timeout(request.app.settings.s3.timeout):
+                    s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
+        except ClientError as exc:
+            await exit_stack.aclose()
+            if exc.response.get("Error", {}).get("Code") == "NoSuchKey":
+                logger.error("S3 object not found: %s/%s", metadata.s3_bucket, metadata.s3_object_key)
+                raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
+            logger.error("Failed to get S3 object: %s", str(exc))
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 error") from exc
+        except BaseException:
+            await exit_stack.aclose()
+            raise
 
-                metadata_location = get_aggregate_location(metadata.id)
+        async def stream_payload() -> AsyncIterator[bytes]:
+            async with exit_stack:
+                body = s3_obj["Body"]
+                exit_stack.push_async_callback(body.aclose)
+                async for chunk in body.iter_chunks(S3_STREAM_CHUNK_SIZE):
+                    yield chunk
 
-                return StreamingResponse(
-                    content=s3_obj["Body"],
-                    media_type=metadata.content_type,
-                    headers={
-                        "Link": f'{metadata_location}; rel="about"',
-                        "Content-Length": str(metadata.content_length),
-                    },
-                )
+        metadata_location = get_aggregate_location(metadata.id)
+
+        return StreamingResponse(
+            content=stream_payload(),
+            media_type=metadata.content_type,
+            headers={
+                "Link": f'{metadata_location}; rel="about"',
+                "Content-Length": str(metadata.content_length),
+            },
+        )
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
