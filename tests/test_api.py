@@ -165,8 +165,9 @@ def test_create_aggrec_signed_no_interval():
 def test_create_aggrec_unsigned():
     """Create aggregate histogram unsigned request."""
 
+    algorithm = algorithms.ED25519
     key_id = "test"
-    key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithms.ED25519)
+    key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
 
     client = get_test_client(key_resolver)
     server = ""
@@ -178,3 +179,19 @@ def test_create_aggrec_unsigned():
 
     s3_client = client.app.get_s3_client.return_value
     s3_client.put_object.assert_not_awaited()
+
+
+def test_stats():
+
+    algorithm = algorithms.ED25519
+    key_id = "test"
+    key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
+
+    client = get_test_client(key_resolver)
+    server = ""
+
+    response = client.get(f"{server}/api/v1/stats/creators")
+    assert response.status_code == 200
+
+    response = client.get(f"{server}/api/v1/stats/aggregates")
+    assert response.status_code == 200
