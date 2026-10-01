@@ -454,15 +454,15 @@ async def get_aggregate_payload(
             async with request.app.get_s3_client() as s3_client:
                 s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
 
-        metadata_location = get_aggregate_location(metadata.id)
+                metadata_location = get_aggregate_location(metadata.id)
 
-        return StreamingResponse(
-            content=s3_obj["Body"],
-            media_type=metadata.content_type,
-            headers={
-                "Link": f'{metadata_location}; rel="about"',
-                "Content-Length": str(metadata.content_length),
-            },
-        )
+                return StreamingResponse(
+                    content=s3_obj["Body"],
+                    media_type=metadata.content_type,
+                    headers={
+                        "Link": f'{metadata_location}; rel="about"',
+                        "Content-Length": str(metadata.content_length),
+                    },
+                )
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
