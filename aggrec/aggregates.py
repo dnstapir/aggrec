@@ -463,9 +463,13 @@ async def get_aggregate_payload(
                     s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
         except ClientError as exc:
             await exit_stack.aclose()
-            if exc.response.get("Error", {}).get("Code") == "NoSuchKey":
-                logger.error("S3 object not found: %s/%s", metadata.s3_bucket, metadata.s3_object_key)
-                raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
+            if error_code := exc.response.get("Error", {}).get("Code"):
+                if error_code in ("NoSuchBucket"):
+                    logger.error("S3 bucket not found: %s", metadata.s3_bucket)
+                    raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR) from exc
+                if error_code in ("NoSuchKey"):
+                    logger.error("S3 object not found: %s/%s", metadata.s3_bucket, metadata.s3_object_key)
+                    raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
             logger.error("Failed to get S3 object: %s", str(exc))
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 error") from exc
         except BaseException:
