@@ -30,6 +30,7 @@ server =  "mongodb://localhost/aggregates"
 trusted_hosts = ["127.0.0.1"]
 healthcheck_hosts = ["127.0.0.1"]
 stats_hosts = ["127.0.0.1", "192.168.0.0/16"]
+max_content_length = "100MB"
 
 [mqtt]
 broker = "mqtt://localhost"

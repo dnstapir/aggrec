@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from ipaddress import IPv4Address, IPv4Network, IPv6Network
 from typing import Annotated
 
-from pydantic import AnyHttpUrl, BaseModel, Field, UrlConstraints
+from pydantic import AnyHttpUrl, BaseModel, ByteSize, Field, UrlConstraints
 from pydantic.networks import IPvAnyAddress, IPvAnyNetwork
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, TomlConfigSettingsSource
@@ -54,6 +54,8 @@ class HttpSettings(BaseModel):
             IPv6Network("fe80::/10"),
         ]
     )
+
+    max_content_length: ByteSize | None = Field(default=None)
 
 
 class MqttSettings(BaseModel):
