@@ -1,9 +1,9 @@
 import os
 from datetime import UTC, datetime
 from ipaddress import IPv4Address, IPv4Network, IPv6Network
-from typing import Annotated, Any
+from typing import Annotated
 
-from pydantic import AnyHttpUrl, BaseModel, BeforeValidator, Field, UrlConstraints
+from pydantic import AnyHttpUrl, BaseModel, ByteSize, Field, UrlConstraints
 from pydantic.networks import IPvAnyAddress, IPvAnyNetwork
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, TomlConfigSettingsSource
@@ -27,34 +27,6 @@ MongodbUrl = Annotated[
     Url,
     UrlConstraints(allowed_schemes=["mongodb", "mongodb+srv", "mongomock"], host_required=True),
 ]
-
-
-SIZE_UNITS: dict[str, int] = {
-    "tib": 1024**4,
-    "gib": 1024**3,
-    "mib": 1024**2,
-    "kib": 1024,
-    "tb": 1024**4,
-    "gb": 1024**3,
-    "mb": 1024**2,
-    "kb": 1024,
-    "b": 1,
-}
-
-
-def size_string(value: Any) -> Any:
-    """Convert a size string (e.g., '10MB', '2GiB') to an integer representing the size in bytes.
-
-    Both KB/MB/GB/TB and KiB/MiB/GiB/TiB are interpreted as binary (powers of 1024) units.
-    """
-    if isinstance(value, str):
-        value = value.strip()
-        lower = value.lower()
-        for suffix, multiplier in SIZE_UNITS.items():
-            if lower.endswith(suffix):
-                return int(value[: -len(suffix)].strip()) * multiplier
-        return int(value)
-    return value
 
 
 class HttpSettings(BaseModel):
@@ -83,7 +55,7 @@ class HttpSettings(BaseModel):
         ]
     )
 
-    max_content_length: Annotated[int, Field(gt=0), BeforeValidator(size_string)] | None = Field(default=None)
+    max_content_length: ByteSize | None = Field(default=None)
 
 
 class MqttSettings(BaseModel):
