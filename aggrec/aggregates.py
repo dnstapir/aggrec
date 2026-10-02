@@ -21,7 +21,7 @@ from opentelemetry import metrics, trace
 from aggrec.helpers import RequestVerifier
 
 from .db_models import AggregateMetadata
-from .helpers import parse_iso8601_interval, read_body_with_limit, rfc_3339_datetime_now
+from .helpers import parse_iso8601_interval, rfc_3339_datetime_now
 from .models import AggregateContentType, AggregateMetadataResponse, AggregateType
 from .settings import Settings
 
@@ -243,19 +243,15 @@ Derived components MUST NOT be included in the signature input.
             f"Header content length ({content_length}) exceeds the maximum allowed",
         )
 
-    # Read body before signature verification (which needs it for Content-Digest),
-    # enforcing the limit while streaming since Content-Length may not bound the body
-    # (e.g. when combined with Transfer-Encoding: chunked)
-    content = await read_body_with_limit(request, max_content_length)
-
     with tracer.start_as_current_span("http_request_verifier"):
         http_request_verifier = RequestVerifier(
             key_resolver=request.app.key_resolver,
             required_signed_components=required_signed_components,
+            max_content_length=max_content_length,
         )
-        request_verifier_result = await http_request_verifier.verify(request, content=content)
+        request_verifier_result, verified_content = await http_request_verifier.verify(request)
 
-    actual_content_length = len(content)
+    actual_content_length = len(verified_content)
     if actual_content_length != content_length:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -312,7 +308,7 @@ Derived components MUST NOT be included in the signature input.
     metadata.s3_object_key = get_s3_object_key(metadata)
     metadata.pending_expire = datetime.now(tz=UTC) + timedelta(seconds=request.app.settings.mongodb.pending_timeout)
 
-    content_checksum_sha256 = base64.b64encode(hashlib.sha256(content).digest()).decode()
+    content_checksum_sha256 = base64.b64encode(hashlib.sha256(verified_content).digest()).decode()
 
     s3_object_metadata = get_s3_object_metadata(metadata)
     logger.debug("S3 object metadata: %s", s3_object_metadata)
@@ -368,7 +364,7 @@ Derived components MUST NOT be included in the signature input.
                         ContentType=content_type,
                         ContentLength=metadata.content_length,
                         ChecksumSHA256=content_checksum_sha256,
-                        Body=content,
+                        Body=verified_content,
                     )
             except Exception as exc:
                 logger.error(

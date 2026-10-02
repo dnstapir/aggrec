@@ -68,11 +68,13 @@ class RequestVerifier:
         key_resolver: KeyResolver,
         algorithm: HTTPSignatureAlgorithm | None = None,
         required_signed_components: Iterable[str] | None = None,
+        max_content_length: int | None = None,
     ):
         self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
         self.http_key_resolver = CustomHTTPSignatureKeyResolver(key_resolver)
         self.covered_components: set[str] = {f'"{component}"' for component in (required_signed_components or [])}
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
+        self.max_content_length = max_content_length
 
     def verify_content_digest(self, result: VerifyResult, content: bytes) -> None:
         """Verify Content-Digest"""
@@ -95,7 +97,7 @@ class RequestVerifier:
                     return str(alg)
         return
 
-    async def verify(self, request: Request, content: bytes) -> VerifyResult:
+    async def verify(self, request: Request) -> tuple[VerifyResult, bytes]:
         """Verify request and return signer"""
 
         logger_extra = {
@@ -135,11 +137,13 @@ class RequestVerifier:
                     self.logger.warning(msg, extra=logger_extra)
                     raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
+        content = await read_body_with_limit(request, self.max_content_length)
+
         for result in results:
             try:
                 self.verify_content_digest(result, content)
                 self.logger.debug("Content-Digest verified")
-                return result
+                return result, content
             except InvalidContentDigest as exc:
                 msg = "Content-Digest verification failed"
                 self.logger.warning(msg, extra=logger_extra, exc_info=exc)
