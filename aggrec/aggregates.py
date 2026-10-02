@@ -238,8 +238,12 @@ Derived components MUST NOT be included in the signature input.
     max_content_length = request.app.settings.http.max_content_length
 
     if max_content_length is not None and content_length > max_content_length:
+        logger.warning(
+            f"Header content length ({content_length}) exceeds the maximum allowed ({max_content_length})",
+            extra={"http_request_headers": request.headers, "http_content_length": content_length},
+        )
         raise HTTPException(
-            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status.HTTP_413_CONTENT_TOO_LARGE,
             f"Header content length ({content_length}) exceeds the maximum allowed",
         )
 

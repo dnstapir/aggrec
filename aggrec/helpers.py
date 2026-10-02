@@ -33,7 +33,7 @@ async def read_body_with_limit(request: Request, max_length: int | None) -> byte
         chunks.append(chunk)
         length += len(chunk)
         if max_length is not None and length > max_length:
-            raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "Content length exceeds the maximum allowed")
+            raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Content length exceeds the maximum allowed")
 
     return b"".join(chunks)
 
