@@ -69,6 +69,7 @@ METADATA_HTTP_HEADERS = [
     "Signature-Input",
 ]
 
+S3_STREAM_CHUNK_SIZE = 64 * 1024  # 64 KB
 
 REQUIRED_SIGNED_COMPONENTS: set[str] = {"content-length", "content-type", "content-digest"}
 
@@ -496,7 +497,7 @@ async def get_aggregate_payload(
         metadata_location = get_aggregate_location(metadata.id)
 
         return S3StreamingResponse(
-            content=body.iter_chunks(request.app.settings.s3.stream_chunk_size),
+            content=body.iter_chunks(S3_STREAM_CHUNK_SIZE),
             exit_stack=exit_stack,
             media_type=metadata.content_type,
             headers={
