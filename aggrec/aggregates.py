@@ -253,14 +253,34 @@ Derived components MUST NOT be included in the signature input.
         h for h in CONDITIONAL_SIGNED_COMPONENTS if h in request.headers
     }
 
+    max_content_length = request.app.settings.http.max_content_length
+
+    if max_content_length is not None and content_length > max_content_length:
+        logger.warning(
+            f"Header content length ({content_length}) exceeds the maximum allowed ({max_content_length})",
+            extra={"http_request_headers": request.headers, "http_content_length": content_length},
+        )
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE,
+            f"Header content length ({content_length}) exceeds the maximum allowed",
+        )
+
     with tracer.start_as_current_span("http_request_verifier"):
         http_request_verifier = RequestVerifier(
-            key_resolver=request.app.key_resolver, required_signed_components=required_signed_components
+            key_resolver=request.app.key_resolver,
+            required_signed_components=required_signed_components,
+            max_content_length=max_content_length,
         )
-        res = await http_request_verifier.verify(request)
+        request_verifier_result, verified_content = await http_request_verifier.verify(request)
 
-    creator = res.parameters.get("keyid")
+    actual_content_length = len(verified_content)
+    if actual_content_length != content_length:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"Content-Length header ({content_length}) does not match actual content length ({actual_content_length})",
+        )
 
+    creator = request_verifier_result.parameters.get("keyid")
     if not creator:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Creator missing in signature parameters")
 
@@ -268,7 +288,7 @@ Derived components MUST NOT be included in the signature input.
 
     logger.info("Create aggregate request by keyid=%s", creator, extra=logger_extra)
 
-    http_headers = get_http_headers(request, res.covered_components.keys())
+    http_headers = get_http_headers(request, request_verifier_result.covered_components.keys())
 
     aggregate_id = ObjectId()
     metadata_location = get_aggregate_location(aggregate_id)
@@ -306,20 +326,11 @@ Derived components MUST NOT be included in the signature input.
         s3_bucket=s3_bucket,
     )
 
-    content = await request.body()
-    content_checksum = base64.b64encode(hashlib.sha256(content).digest()).decode()
-
-    actual_content_length = len(content)
-    reported_content_length = int(request.headers["Content-Length"])
-    if actual_content_length != reported_content_length:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            f"Content-Length header ({reported_content_length}) does not match actual content length ({actual_content_length})",
-        )
-
     metadata.content_length = actual_content_length
     metadata.s3_object_key = get_s3_object_key(metadata)
     metadata.pending_expire = datetime.now(tz=UTC) + timedelta(seconds=request.app.settings.mongodb.pending_timeout)
+
+    content_checksum_sha256 = base64.b64encode(hashlib.sha256(verified_content).digest()).decode()
 
     s3_object_metadata = get_s3_object_metadata(metadata)
     logger.debug("S3 object metadata: %s", s3_object_metadata)
@@ -374,8 +385,8 @@ Derived components MUST NOT be included in the signature input.
                         Metadata=s3_object_metadata,
                         ContentType=content_type,
                         ContentLength=metadata.content_length,
-                        ChecksumSHA256=content_checksum,
-                        Body=content,
+                        ChecksumSHA256=content_checksum_sha256,
+                        Body=verified_content,
                     )
             except Exception as exc:
                 logger.error(

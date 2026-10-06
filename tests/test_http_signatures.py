@@ -37,12 +37,10 @@ def build_starlette_request(
             "server": (server, 443),
         }
     )
+
     if content:
-
-        async def request_body() -> bytes:
-            return content
-
-        request.body = request_body
+        # Directly set the request body for testing purposes
+        request._body = content
 
     return request
 
@@ -115,7 +113,7 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
         content=req.content,
     )
 
-    result = await verifier.verify(request)
+    result, _ = await verifier.verify(request)
     print(result)
 
     with pytest.raises(HTTPException) as exc_info:
