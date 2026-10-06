@@ -23,6 +23,21 @@ DEFAULT_SIGNATURE_ALGORITHM = algorithms.ECDSA_P256_SHA256
 HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
 
 
+async def read_body_with_limit(request: Request, max_length: int | None) -> bytes:
+    """Read request body, aborting with 413 as soon as it exceeds max_length"""
+
+    chunks: list[bytes] = []
+    length = 0
+
+    async for chunk in request.stream():
+        chunks.append(chunk)
+        length += len(chunk)
+        if max_length is not None and length > max_length:
+            raise HTTPException(status.HTTP_413_CONTENT_TOO_LARGE, "Content length exceeds the maximum allowed")
+
+    return b"".join(chunks)
+
+
 class ContentDigestException(ValueError):
     pass
 
@@ -53,19 +68,21 @@ class RequestVerifier:
         key_resolver: KeyResolver,
         algorithm: HTTPSignatureAlgorithm | None = None,
         required_signed_components: Iterable[str] | None = None,
+        max_content_length: int | None = None,
     ):
         self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
         self.http_key_resolver = CustomHTTPSignatureKeyResolver(key_resolver)
         self.covered_components: set[str] = {f'"{component}"' for component in (required_signed_components or [])}
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
+        self.max_content_length = max_content_length
 
-    async def verify_content_digest(self, result: VerifyResult, request: Request):
+    def verify_content_digest(self, result: VerifyResult, content: bytes) -> None:
         """Verify Content-Digest"""
         if content_digest := result.covered_components.get('"content-digest"'):
             content_digest_value = http_sf.parse(content_digest.encode(), tltype="dictionary")
             for alg, func in HASH_ALGORITHMS.items():
                 if digest := content_digest_value.get(alg):
-                    if digest[0] == func(await request.body()).digest():
+                    if digest[0] == func(content).digest():
                         return
                     raise InvalidContentDigest
             raise UnsupportedContentDigestAlgorithm
@@ -80,7 +97,7 @@ class RequestVerifier:
                     return str(alg)
         return
 
-    async def verify(self, request: Request) -> VerifyResult:
+    async def verify(self, request: Request) -> tuple[VerifyResult, bytes]:
         """Verify request and return signer"""
 
         logger_extra = {
@@ -120,11 +137,13 @@ class RequestVerifier:
                     self.logger.warning(msg, extra=logger_extra)
                     raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
+        content = await read_body_with_limit(request, self.max_content_length)
+
         for result in results:
             try:
-                await self.verify_content_digest(result, request)
+                self.verify_content_digest(result, content)
                 self.logger.debug("Content-Digest verified")
-                return result
+                return result, content
             except InvalidContentDigest as exc:
                 msg = "Content-Digest verification failed"
                 self.logger.warning(msg, extra=logger_extra, exc_info=exc)
