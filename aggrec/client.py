@@ -20,12 +20,12 @@ from jwcrypto.jwk import JWK
 
 DEFAULT_AGGREGATE_INTERVAL_DURATION = "PT1M"
 DEFAULT_CONTENT_TYPE = "application/vnd.apache.parquet"
-DEFAULT_COVERED_COMPONENT_IDS = [
+DEFAULT_COVERED_COMPONENT_IDS: set[str] = {
     "content-type",
     "content-digest",
     "content-length",
     "aggregate-interval",
-]
+}
 
 
 class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
@@ -142,7 +142,7 @@ def main() -> None:
             jwk = JWK(**json.load(fp))
             key_id = jwk.key_id
 
-    covered_component_ids = DEFAULT_COVERED_COMPONENT_IDS
+    covered_component_ids = DEFAULT_COVERED_COMPONENT_IDS.copy()
 
     with open(args.aggregate, "rb") as fp:
         req = client.build_request(
@@ -152,7 +152,7 @@ def main() -> None:
         )
         if args.gzip:
             req.headers["Content-Encoding"] = "gzip"
-            covered_component_ids.append("content-encoding")
+            covered_component_ids.add("content-encoding")
 
     req.headers["Aggregate-Interval"] = args.interval
     req.headers["X-Request-ID"] = str(uuid.uuid4())
@@ -166,7 +166,7 @@ def main() -> None:
             req,
             key_id=key_id,
             label="client",
-            covered_component_ids=covered_component_ids,
+            covered_component_ids=list(covered_component_ids),
             include_alg=True,
         )
 
