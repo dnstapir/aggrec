@@ -62,6 +62,10 @@ clients/test-ed25519.pem: clients test-private-ed25519.pem
 test: $(DEPENDS) $(PUBLIC_KEYS)
 	uv run pytest --ruff --ruff-format
 
+coverage:
+	uv run coverage run -m pytest --verbose
+	uv run coverage html
+
 lint:
 	uv run ruff check .
 
