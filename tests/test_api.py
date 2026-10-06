@@ -1,11 +1,14 @@
+import asyncio
 import hashlib
 import os
 import uuid
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import http_sf
 import httpx2
+from aiobotocore.response import AioStreamingBody
 from fastapi import status
 from fastapi.testclient import TestClient
 from http_message_signatures import HTTPMessageSigner, HTTPSignatureKeyResolver, algorithms
@@ -38,8 +41,12 @@ def get_mock_s3_client() -> MagicMock:
         return None
 
     async def get_object(Bucket: str, Key: str) -> dict[str, Any]:
-        body = objects[(Bucket, Key)]
-        return {"Body": [body], "ContentLength": len(body)}
+        data = objects[(Bucket, Key)]
+        content = aiohttp.StreamReader(MagicMock(), limit=2**16, loop=asyncio.get_running_loop())
+        content.feed_data(data)
+        content.feed_eof()
+        body = AioStreamingBody(MagicMock(content=content), content_length=len(data))
+        return {"Body": body, "ContentLength": len(data)}
 
     s3_client = AsyncMock()
     s3_client.__aenter__.return_value = s3_client
