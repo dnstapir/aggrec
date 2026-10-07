@@ -507,14 +507,15 @@ async def get_aggregate_payload(
 
         metadata_location = get_aggregate_location(metadata.id)
 
-        return S3StreamingResponse(
-            content=body.iter_chunks(S3_STREAM_CHUNK_SIZE),
-            exit_stack=exit_stack,
-            media_type=metadata.content_type,
-            headers={
-                "Link": f'{metadata_location}; rel="about"',
-                "Content-Length": str(s3_obj["ContentLength"]),
-            },
-        )
+        async with asyncio.timeout(request.app.settings.s3.timeout):
+            return S3StreamingResponse(
+                content=body.iter_chunks(S3_STREAM_CHUNK_SIZE),
+                exit_stack=exit_stack,
+                media_type=metadata.content_type,
+                headers={
+                    "Link": f'{metadata_location}; rel="about"',
+                    "Content-Length": str(s3_obj["ContentLength"]),
+                },
+            )
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
