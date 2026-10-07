@@ -479,43 +479,43 @@ async def get_aggregate_payload(
         raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
 
     if metadata := AggregateMetadata.objects(id=aggregate_object_id, pending_expire=None).first():
-        # The S3 client must stay open until the body has been fully streamed,
-        # so its lifetime is handed over to the response body iterator.
-        exit_stack = AsyncExitStack()
-        try:
-            with tracer.start_as_current_span("s3.get_object"):
+        with tracer.start_as_current_span("s3.get_object"):
+            # The S3 client must stay open until the body has been fully streamed,
+            # so its lifetime is handed over to the response body iterator.
+            exit_stack = AsyncExitStack()
+            try:
                 s3_client = await exit_stack.enter_async_context(request.app.get_s3_client())
                 async with asyncio.timeout(request.app.settings.s3.timeout):
                     s3_obj = await s3_client.get_object(Bucket=metadata.s3_bucket, Key=metadata.s3_object_key)
                 body: AioStreamingBody = s3_obj["Body"]
                 # Callbacks run LIFO: body is closed before the S3 client
                 exit_stack.push_async_callback(body.aclose)
-        except ClientError as exc:
-            await exit_stack.aclose()
-            if error_code := exc.response.get("Error", {}).get("Code"):
-                if error_code == "NoSuchBucket":
-                    logger.error("S3 bucket not found: %s", metadata.s3_bucket)
-                    raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR) from exc
-                if error_code == "NoSuchKey":
-                    logger.error("S3 object not found: %s/%s", metadata.s3_bucket, metadata.s3_object_key)
-                    raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
-            logger.error("Failed to get S3 object: %s", str(exc))
-            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 error") from exc
-        except BaseException:
-            await exit_stack.aclose()
-            raise
+            except ClientError as exc:
+                await exit_stack.aclose()
+                if error_code := exc.response.get("Error", {}).get("Code"):
+                    if error_code == "NoSuchBucket":
+                        logger.error("S3 bucket not found: %s", metadata.s3_bucket)
+                        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR) from exc
+                    if error_code == "NoSuchKey":
+                        logger.error("S3 object not found: %s/%s", metadata.s3_bucket, metadata.s3_object_key)
+                        raise HTTPException(status.HTTP_404_NOT_FOUND) from exc
+                logger.error("Failed to get S3 object: %s", str(exc))
+                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 error") from exc
+            except BaseException:
+                await exit_stack.aclose()
+                raise
 
-        metadata_location = get_aggregate_location(metadata.id)
+            metadata_location = get_aggregate_location(metadata.id)
 
-        async with asyncio.timeout(request.app.settings.s3.timeout):
-            return S3StreamingResponse(
-                content=body.iter_chunks(S3_STREAM_CHUNK_SIZE),
-                exit_stack=exit_stack,
-                media_type=metadata.content_type,
-                headers={
-                    "Link": f'{metadata_location}; rel="about"',
-                    "Content-Length": str(s3_obj["ContentLength"]),
-                },
-            )
+            async with asyncio.timeout(request.app.settings.s3.timeout):
+                return S3StreamingResponse(
+                    content=body.iter_chunks(S3_STREAM_CHUNK_SIZE),
+                    exit_stack=exit_stack,
+                    media_type=metadata.content_type,
+                    headers={
+                        "Link": f'{metadata_location}; rel="about"',
+                        "Content-Length": str(s3_obj["ContentLength"]),
+                    },
+                )
 
     raise HTTPException(status.HTTP_404_NOT_FOUND)
