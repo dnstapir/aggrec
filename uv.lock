@@ -29,6 +29,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "aiohttp" },
     { name = "coverage" },
     { name = "fakeredis" },
     { name = "mongomock" },
@@ -41,10 +42,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiobotocore", specifier = ">=2.21.1" },
+    { name = "aiobotocore", specifier = ">=3.9.2" },
     { name = "aiomqtt", specifier = ">=2.3.0" },
     { name = "aniso8601", specifier = ">=10.0.0" },
-    { name = "boto3", specifier = ">=1.37.1" },
+    { name = "boto3", specifier = ">=1.43.106" },
     { name = "dnstapir", extras = ["keymanager", "opentelemetry"], git = "https://github.com/dnstapir/python-dnstapir.git?tag=v1.5.1" },
     { name = "fastapi", specifier = ">=0.141.1" },
     { name = "http-message-signatures", specifier = ">=2.0.1" },
@@ -60,6 +61,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "aiohttp", specifier = ">=3.14.4" },
     { name = "coverage", specifier = ">=7.16.2" },
     { name = "fakeredis", specifier = ">=2.27.0" },
     { name = "mongomock", specifier = ">=4.3.0" },

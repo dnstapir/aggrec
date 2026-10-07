@@ -7,10 +7,10 @@ readme = "README.md"
 requires-python = ">=3.13,<4.0"
 dependencies = [
     "dnstapir[opentelemetry,keymanager]",
-    "aiobotocore>=2.21.1",
+    "aiobotocore>=3.9.2",
     "aiomqtt>=2.3.0",
     "aniso8601>=10.0.0",
-    "boto3>=1.37.1",
+    "boto3>=1.43.106",
     "fastapi>=0.141.1",
     "http-message-signatures>=2.0.1",
     "http-sf>=1.0.3",
@@ -45,6 +45,7 @@ allow-direct-references = true
 
 [dependency-groups]
 dev = [
+    "aiohttp>=3.14.4",
     "coverage>=7.16.2",
     "fakeredis>=2.27.0",
     "mongomock>=4.3.0",

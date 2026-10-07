@@ -42,6 +42,10 @@ test-client-ed25519: test-private-ed25519.pem
 	openssl rand 1024 > random.bin
 	uv run aggrec_client --http-key-id test-ed25519 --http-key-file $< random.bin
 
+test-client-large: test-private-ed25519.pem
+	openssl rand 10485760 > random.bin
+	uv run aggrec_client --http-key-id test-ed25519 --http-key-file $< random.bin
+
 keys: clients/test-p256.pem clients/test-ed25519.pem
 
 test-private-p256.pem:
