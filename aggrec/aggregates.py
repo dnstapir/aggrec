@@ -505,6 +505,15 @@ async def get_aggregate_payload(
                 await exit_stack.aclose()
                 raise
 
+            s3_content_length = s3_obj["ContentLength"]
+            if s3_content_length != metadata.content_length:
+                logger.error(
+                    "S3 object content length mismatch: expected %s, got %s",
+                    metadata.content_length,
+                    s3_content_length,
+                )
+                raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 content length mismatch")
+
             metadata_location = get_aggregate_location(metadata.id)
 
             async with asyncio.timeout(request.app.settings.s3.timeout):
@@ -514,7 +523,7 @@ async def get_aggregate_payload(
                     media_type=metadata.content_type,
                     headers={
                         "Link": f'{metadata_location}; rel="about"',
-                        "Content-Length": str(s3_obj["ContentLength"]),
+                        "Content-Length": str(s3_content_length),
                     },
                 )
 
