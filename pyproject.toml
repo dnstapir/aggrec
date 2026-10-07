@@ -45,6 +45,7 @@ allow-direct-references = true
 
 [dependency-groups]
 dev = [
+    "aiohttp>=3.14.4",
     "coverage>=7.16.2",
     "fakeredis>=2.27.0",
     "mongomock>=4.3.0",

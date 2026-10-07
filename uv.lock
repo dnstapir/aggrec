@@ -29,6 +29,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "aiohttp" },
     { name = "coverage" },
     { name = "fakeredis" },
     { name = "mongomock" },
@@ -60,6 +61,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "aiohttp", specifier = ">=3.14.4" },
     { name = "coverage", specifier = ">=7.16.2" },
     { name = "fakeredis", specifier = ">=2.27.0" },
     { name = "mongomock", specifier = ">=4.3.0" },
