@@ -513,6 +513,7 @@ async def get_aggregate_payload(
 
             s3_content_length = s3_obj["ContentLength"]
             if s3_content_length != metadata.content_length:
+                await exit_stack.aclose()
                 logger.error(
                     "S3 object content length mismatch: expected %s, got %s",
                     metadata.content_length,
