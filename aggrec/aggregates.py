@@ -388,6 +388,12 @@ Derived components MUST NOT be included in the signature input.
                         ChecksumSHA256=content_checksum_sha256,
                         Body=verified_content,
                     )
+            except TimeoutError as exc:
+                logger.error(
+                    "S3 operation timed out, deleting metadata %s", metadata.id, extra=logger_extra, exc_info=exc
+                )
+                metadata.delete()
+                raise HTTPException(status.HTTP_504_GATEWAY_TIMEOUT, "S3 timeout") from exc
             except Exception as exc:
                 logger.error(
                     "Failed to create object, deleting metadata %s", metadata.id, extra=logger_extra, exc_info=exc
