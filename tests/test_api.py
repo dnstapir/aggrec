@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import aiohttp
 import http_sf
 import httpx2
+import pytest
 from aiobotocore.response import AioStreamingBody
 from fastapi import status
 from fastapi.testclient import TestClient
@@ -167,6 +168,50 @@ def test_create_aggrec_signed_no_interval():
     s3_client = client.app.get_s3_client.return_value
     s3_client.put_object.assert_awaited_once()
     assert s3_client.put_object.await_args.kwargs["Body"] == request.content
+
+
+def test_get_payload_s3_read_timeout():
+    """Abort payload streaming when a read from S3 stalls."""
+
+    algorithm = algorithms.ED25519
+    key_id = "test"
+    key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
+
+    client = get_test_client(key_resolver)
+    server = ""
+
+    content = os.urandom(1024)
+
+    request = get_signed_request(
+        client=client,
+        url=f"{server}/api/v1/aggregate/histogram",
+        headers={
+            "Aggregate-Interval": "1984-01-01T12:00:00Z/PT1M",
+        },
+        content=content,
+        key_resolver=key_resolver,
+        key_id=key_id,
+    )
+
+    response = client.send(request)
+    assert response.status_code == status.HTTP_201_CREATED
+    aggregate_location = response.headers["Location"]
+
+    async def get_object_stalled(Bucket: str, Key: str) -> dict[str, Any]:
+        # Deliver half of the payload, then never send more data nor EOF
+        stream = aiohttp.StreamReader(MagicMock(), limit=2**16, loop=asyncio.get_running_loop())
+        stream.feed_data(content[: len(content) // 2])
+        body = AioStreamingBody(MagicMock(content=stream), content_length=len(content))
+        return {"Body": body, "ContentLength": len(content)}
+
+    s3_client = client.app.get_s3_client.return_value
+    s3_client.get_object.side_effect = get_object_stalled
+    s3_client.__aexit__.reset_mock()
+
+    with patch.object(client.app.settings.s3, "chunk_timeout", 0.1), pytest.raises(TimeoutError):
+        client.get(f"{aggregate_location}/payload")
+
+    s3_client.__aexit__.assert_awaited_once()
 
 
 def test_create_aggrec_unsigned():

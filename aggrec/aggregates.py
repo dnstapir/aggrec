@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, suppress
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
@@ -173,11 +174,27 @@ def get_s3_object_metadata(metadata: AggregateMetadata) -> dict[str, Any]:
 
 
 class S3StreamingResponse(StreamingResponse):
-    """StreamingResponse that releases S3 resources even if the body is never iterated."""
+    """StreamingResponse that releases S3 resources even if the body is never iterated,
+    and aborts the stream if any single read from S3 stalls for longer than timeout."""
 
-    def __init__(self, *args: Any, exit_stack: AsyncExitStack, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, exit_stack: AsyncExitStack, timeout: float | None = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.exit_stack = exit_stack
+        if timeout is not None:
+            self.timeout = timeout
+            self.body_iterator = self._iter_with_timeout(self.body_iterator)
+
+    async def _iter_with_timeout(self, chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
+        while True:
+            try:
+                async with asyncio.timeout(self.timeout):
+                    chunk = await anext(chunks)
+            except StopAsyncIteration:
+                return
+            except TimeoutError:
+                logger.error("S3 read timed out while streaming payload")
+                raise
+            yield chunk
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         try:
@@ -526,6 +543,7 @@ async def get_aggregate_payload(
             return S3StreamingResponse(
                 content=body.iter_chunks(S3_STREAM_CHUNK_SIZE),
                 exit_stack=exit_stack,
+                timeout=request.app.settings.s3.chunk_timeout,
                 media_type=metadata.content_type,
                 headers={
                     "Link": f'{metadata_location}; rel="about"',
