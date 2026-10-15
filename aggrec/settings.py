@@ -96,6 +96,10 @@ class S3(BaseModel):
         return datetime.now(tz=UTC).strftime(self.bucket)
 
 
+class Features(BaseModel):
+    creator_metrics: bool = Field(default=False)
+
+
 class Settings(BaseSettings):
     metadata_base_url: AnyHttpUrl = Field(default="http://127.0.0.1")
     clients_database: str = Field(default="clients")
@@ -105,6 +109,7 @@ class Settings(BaseSettings):
     mongodb: MongoDB = Field(default=MongoDB())
     otlp: OtlpSettings | None = None
     key_cache: KeyCacheSettings | None = None
+    features: Features | None = None
 
     http: HttpSettings = Field(default=HttpSettings())
 

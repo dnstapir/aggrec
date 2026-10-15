@@ -50,13 +50,23 @@ aggregates_duplicates_counter = meter.create_counter(
     description="The number of duplicate aggregates received",
 )
 
+aggregates_mqtt_messages = meter.create_counter(
+    "aggregates.mqtt.messages",
+    description="The number of MQTT messages enqueued",
+)
+
+aggregates_nats_messages = meter.create_counter(
+    "aggregates.nats.messages",
+    description="The number of NATS messages enqueued",
+)
+
 aggregates_mqtt_queue_drops = meter.create_counter(
-    "aggregates.mqtt_queue_drops",
+    "aggregates.mqtt.queue_drops",
     description="MQTT messages dropped due to full queue",
 )
 
 aggregates_nats_queue_drops = meter.create_counter(
-    "aggregates.nats_queue_drops",
+    "aggregates.nats.queue_drops",
     description="NATS messages dropped due to full queue",
 )
 
@@ -375,7 +385,7 @@ Derived components MUST NOT be included in the signature input.
                         creator,
                         extra={**logger_extra, "aggregate_id": str(existing_metadata.id)},
                     )
-                    aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
+                    aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value})
                     metadata_location = get_aggregate_location(existing_metadata.id)
                     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
             else:
@@ -426,13 +436,15 @@ Derived components MUST NOT be included in the signature input.
             metadata.save()
 
     aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
-    aggregates_by_creator_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
+    if request.app.settings.features and request.app.settings.features.creator_metrics:
+        aggregates_by_creator_counter.add(1, {"creator": metadata.creator})
 
     message_payload = json.dumps(get_new_aggregate_event_message(metadata, request.app.settings))
 
     if request.app.mqtt_new_aggregate_messages is not None:
         try:
             request.app.mqtt_new_aggregate_messages.put_nowait(message_payload)
+            aggregates_mqtt_messages.add(1)
             logger.debug("New aggregate message added to MQTT queue")
         except asyncio.QueueFull:
             aggregates_mqtt_queue_drops.add(1)
@@ -441,6 +453,7 @@ Derived components MUST NOT be included in the signature input.
     if request.app.nats_new_aggregate_messages is not None:
         try:
             request.app.nats_new_aggregate_messages.put_nowait(message_payload)
+            aggregates_nats_messages.add(1)
             logger.debug("New aggregate message added to NATS queue")
         except asyncio.QueueFull:
             aggregates_nats_queue_drops.add(1)
