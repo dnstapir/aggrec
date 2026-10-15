@@ -46,22 +46,22 @@ aggregates_duplicates_counter = meter.create_counter(
 )
 
 aggregates_mqtt_messages = meter.create_counter(
-    "aggregates.mqtt_messages",
-    description="The number of MQTT messages published",
+    "aggregates.mqtt.messages",
+    description="The number of MQTT messages enqueued",
 )
 
 aggregates_nats_messages = meter.create_counter(
-    "aggregates.nats_messages",
-    description="The number of NATS messages published",
+    "aggregates.nats.messages",
+    description="The number of NATS messages enqueued",
 )
 
 aggregates_mqtt_queue_drops = meter.create_counter(
-    "aggregates.mqtt_queue_drops",
+    "aggregates.mqtt.queue_drops",
     description="MQTT messages dropped due to full queue",
 )
 
 aggregates_nats_queue_drops = meter.create_counter(
-    "aggregates.nats_queue_drops",
+    "aggregates.nats.queue_drops",
     description="NATS messages dropped due to full queue",
 )
 
