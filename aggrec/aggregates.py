@@ -40,14 +40,19 @@ aggregates_counter = meter.create_counter(
     description="The number of aggregates stored",
 )
 
-aggregates_by_creator_counter = meter.create_counter(
-    "aggregates.counter_by_creator",
-    description="The number of aggregates per creator",
-)
-
 aggregates_duplicates_counter = meter.create_counter(
     "aggregates.duplicates_counter",
     description="The number of duplicate aggregates received",
+)
+
+aggregates_mqtt_messages = meter.create_counter(
+    "aggregates.mqtt_messages",
+    description="The number of MQTT messages published",
+)
+
+aggregates_nats_messages = meter.create_counter(
+    "aggregates.nats_messages",
+    description="The number of NATS messages published",
 )
 
 aggregates_mqtt_queue_drops = meter.create_counter(
@@ -425,14 +430,14 @@ Derived components MUST NOT be included in the signature input.
         with pymongo.timeout(request.app.settings.mongodb.timeout):
             metadata.save()
 
-    aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
-    aggregates_by_creator_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
+    aggregates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
 
     message_payload = json.dumps(get_new_aggregate_event_message(metadata, request.app.settings))
 
     if request.app.mqtt_new_aggregate_messages is not None:
         try:
             request.app.mqtt_new_aggregate_messages.put_nowait(message_payload)
+            aggregates_mqtt_messages.add(1)
             logger.debug("New aggregate message added to MQTT queue")
         except asyncio.QueueFull:
             aggregates_mqtt_queue_drops.add(1)
@@ -441,6 +446,7 @@ Derived components MUST NOT be included in the signature input.
     if request.app.nats_new_aggregate_messages is not None:
         try:
             request.app.nats_new_aggregate_messages.put_nowait(message_payload)
+            aggregates_nats_messages.add(1)
             logger.debug("New aggregate message added to NATS queue")
         except asyncio.QueueFull:
             aggregates_nats_queue_drops.add(1)
