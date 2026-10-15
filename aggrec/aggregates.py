@@ -40,6 +40,11 @@ aggregates_counter = meter.create_counter(
     description="The number of aggregates stored",
 )
 
+aggregates_by_creator_counter = meter.create_counter(
+    "aggregates.counter_by_creator",
+    description="The number of aggregates per creator",
+)
+
 aggregates_duplicates_counter = meter.create_counter(
     "aggregates.duplicates_counter",
     description="The number of duplicate aggregates received",
@@ -380,7 +385,7 @@ Derived components MUST NOT be included in the signature input.
                         creator,
                         extra={**logger_extra, "aggregate_id": str(existing_metadata.id)},
                     )
-                    aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
+                    aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value})
                     metadata_location = get_aggregate_location(existing_metadata.id)
                     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
             else:
@@ -430,7 +435,9 @@ Derived components MUST NOT be included in the signature input.
         with pymongo.timeout(request.app.settings.mongodb.timeout):
             metadata.save()
 
-    aggregates_counter.add(1, {"aggregate_type": aggregate_type.value, "creator": creator})
+    aggregates_counter.add(1, {"aggregate_type": aggregate_type.value})
+    if request.app.settings.features and request.app.settings.features.creator_metrics:
+        aggregates_by_creator_counter.add(1, {"creator": metadata.creator})
 
     message_payload = json.dumps(get_new_aggregate_event_message(metadata, request.app.settings))
 
