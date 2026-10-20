@@ -26,8 +26,8 @@ servers = ["nats://localhost:4222"]
 subject = "aggregates"
 
 [otlp]
-spans_endpoint = "http://localhost:4317"
-metrics_endpoint = "http://localhost:4317"
+spans_endpoint = "grpc://localhost:4317"
+metrics_endpoint = "grpc://localhost:4317"
 insecure = true
 
 [key_cache]
