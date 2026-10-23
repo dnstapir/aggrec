@@ -7,20 +7,33 @@ from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_add
 import aniso8601
 import http_sf
 from fastapi import HTTPException, Request, status
-from http_message_signatures import (
-    HTTPMessageVerifier,
-    HTTPSignatureAlgorithm,
-    HTTPSignatureKeyResolver,
-    VerifyResult,
-    algorithms,
-)
-from http_message_signatures.algorithms import signature_algorithms as supported_signature_algorithms
+from http_message_signatures import HTTPMessageVerifier, HTTPSignatureKeyResolver, VerifyResult, algorithms
 from http_message_signatures.exceptions import InvalidSignature
 
 from dnstapir.key_resolver import KeyResolver, PublicKey
 
-DEFAULT_SIGNATURE_ALGORITHM = algorithms.ECDSA_P256_SHA256
-HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
+SUPPORTED_SIGNATURE_ALGORITHMS: dict[str, type] = {
+    algorithm_cls.algorithm_id: algorithm_cls
+    for algorithm_cls in [
+        algorithms.RSA_PSS_SHA512,
+        algorithms.RSA_V1_5_SHA256,
+        algorithms.ED25519,
+        algorithms.ECDSA_P256_SHA256,
+    ]
+}
+
+HASH_ALGORITHMS = {
+    "sha-256": hashlib.sha256,
+    "sha-512": hashlib.sha512,
+}
+
+
+def validate_signature_algorithm(alg: str) -> str:
+    """Validate that the given signature algorithm is supported."""
+
+    if alg not in SUPPORTED_SIGNATURE_ALGORITHMS:
+        raise ValueError("Unsupported signature algorithm")
+    return alg
 
 
 async def read_body_with_limit(request: Request, max_length: int | None) -> bytes:
@@ -66,15 +79,17 @@ class RequestVerifier:
     def __init__(
         self,
         key_resolver: KeyResolver,
-        algorithm: HTTPSignatureAlgorithm | None = None,
+        default_algorithm: str | None = None,
+        accepted_algorithms: Iterable[str] | None = None,
         required_signed_components: Iterable[str] | None = None,
         max_content_length: int | None = None,
     ):
-        self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
         self.http_key_resolver = CustomHTTPSignatureKeyResolver(key_resolver)
         self.covered_components: set[str] = {f'"{component}"' for component in (required_signed_components or [])}
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self.max_content_length = max_content_length
+        self.default_algorithm = default_algorithm
+        self.accepted_algorithms = set(accepted_algorithms) if accepted_algorithms is not None else None
 
     def verify_content_digest(self, result: VerifyResult, content: bytes) -> None:
         """Verify Content-Digest"""
@@ -108,8 +123,28 @@ class RequestVerifier:
 
         self.logger.debug("Verify HTTP request", extra=logger_extra)
 
-        alg = self.get_algorithm(request.headers)
-        signature_algorithm = supported_signature_algorithms[alg]
+        try:
+            alg = self.get_algorithm(request.headers)
+        except KeyError as exc:
+            msg = "Signature-Input header missing"
+            self.logger.warning(msg, extra=logger_extra)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
+        except http_sf.StructuredFieldError as exc:
+            msg = "Invalid Signature-Input header"
+            self.logger.warning(msg, extra=logger_extra, exc_info=exc)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
+
+        signature_algorithm = SUPPORTED_SIGNATURE_ALGORITHMS.get(alg) or SUPPORTED_SIGNATURE_ALGORITHMS.get(
+            self.default_algorithm
+        )
+
+        if not signature_algorithm or (
+            self.accepted_algorithms is not None and signature_algorithm.algorithm_id not in self.accepted_algorithms
+        ):
+            msg = "Unsupported signature algorithm"
+            self.logger.warning(msg, extra=logger_extra)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
+
         verifier = HTTPMessageVerifier(
             signature_algorithm=signature_algorithm,
             key_resolver=self.http_key_resolver,

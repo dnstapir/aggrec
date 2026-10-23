@@ -3,13 +3,15 @@ from datetime import UTC, datetime
 from ipaddress import IPv4Address, IPv4Network, IPv6Network
 from typing import Annotated
 
-from pydantic import AnyHttpUrl, BaseModel, ByteSize, Field, UrlConstraints
+from pydantic import AnyHttpUrl, BaseModel, BeforeValidator, ByteSize, Field, UrlConstraints
 from pydantic.networks import IPvAnyAddress, IPvAnyNetwork
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, TomlConfigSettingsSource
 
 from dnstapir.key_cache import KeyCacheSettings
 from dnstapir.opentelemetry import OtlpSettings
+
+from .helpers import validate_signature_algorithm
 
 ENV_PREFIX = "AGGREC_"
 
@@ -27,6 +29,8 @@ MongodbUrl = Annotated[
     Url,
     UrlConstraints(allowed_schemes=["mongodb", "mongodb+srv", "mongomock"], host_required=True),
 ]
+
+HttpSignatureAlgorithm = Annotated[str, BeforeValidator(validate_signature_algorithm)]
 
 
 class HttpSettings(BaseModel):
@@ -56,6 +60,8 @@ class HttpSettings(BaseModel):
     )
 
     max_content_length: ByteSize | None = Field(default=None)
+    signature_algorithms: list[HttpSignatureAlgorithm] = Field(default=["ed25519", "ecdsa-p256-sha256"])
+    default_signature_algorithm: HttpSignatureAlgorithm | None = Field(default=None)
 
 
 class MqttSettings(BaseModel):
