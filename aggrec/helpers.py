@@ -13,10 +13,13 @@ from http_message_signatures.exceptions import InvalidSignature
 from dnstapir.key_resolver import KeyResolver, PublicKey
 
 SUPPORTED_SIGNATURE_ALGORITHMS: dict[str, type] = {
-    "rsa-pss-sha512": algorithms.RSA_PSS_SHA512,
-    "rsa-v1_5-sha256": algorithms.RSA_V1_5_SHA256,
-    "ed25519": algorithms.ED25519,
-    "ecdsa-p256-sha256": algorithms.ECDSA_P256_SHA256,
+    algorithm_cls.algorithm_id: algorithm_cls
+    for algorithm_cls in [
+        algorithms.RSA_PSS_SHA512,
+        algorithms.RSA_V1_5_SHA256,
+        algorithms.ED25519,
+        algorithms.ECDSA_P256_SHA256,
+    ]
 }
 
 HASH_ALGORITHMS = {
