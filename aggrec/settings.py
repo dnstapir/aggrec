@@ -56,6 +56,7 @@ class HttpSettings(BaseModel):
     )
 
     max_content_length: ByteSize | None = Field(default=None)
+    signature_algorithms: list[str] = Field(default=["ed25519", "ecdsa-p256-sha256"])
 
 
 class MqttSettings(BaseModel):
