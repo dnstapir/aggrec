@@ -48,7 +48,7 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.43.106" },
     { name = "dnstapir", extras = ["keymanager", "opentelemetry"], git = "https://github.com/dnstapir/python-dnstapir.git?tag=v1.7.2" },
     { name = "fastapi", specifier = ">=0.141.1" },
-    { name = "http-message-signatures", specifier = ">=2.0.1" },
+    { name = "http-message-signatures", specifier = ">=2.2.0" },
     { name = "http-sf", specifier = ">=1.0.3" },
     { name = "httpx2", extras = ["http2"], specifier = ">=2.12.0" },
     { name = "mongoengine", specifier = ">=0.29.1" },
