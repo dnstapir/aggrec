@@ -123,11 +123,9 @@ class RequestVerifier:
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
 
-        if (
-            self.accepted_algorithms is not None
-            and alg not in self.accepted_algorithms
-            or not (signature_algorithm := SUPPORTED_SIGNATURE_ALGORITHMS.get(alg, self.default_algorithm))
-        ):
+        signature_algorithm = SUPPORTED_SIGNATURE_ALGORITHMS.get(alg, self.default_algorithm)
+
+        if self.accepted_algorithms is not None and alg not in self.accepted_algorithms or not signature_algorithm:
             msg = "Unsupported signature algorithm"
             self.logger.warning(msg, extra=logger_extra)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
