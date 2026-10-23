@@ -112,7 +112,12 @@ class RequestVerifier:
 
         self.logger.debug("Verify HTTP request", extra=logger_extra)
 
-        alg = self.get_algorithm(request.headers)
+        try:
+            alg = self.get_algorithm(request.headers)
+        except KeyError as exc:
+            msg = "Signature-Input header missing"
+            self.logger.warning(msg, extra=logger_extra)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
 
         if (
             self.accepted_algorithms is not None
