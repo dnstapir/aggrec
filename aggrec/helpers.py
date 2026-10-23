@@ -28,6 +28,14 @@ HASH_ALGORITHMS = {
 }
 
 
+def validate_signature_algorithm(alg: str) -> str:
+    """Validate that the given signature algorithm is supported."""
+
+    if alg not in SUPPORTED_SIGNATURE_ALGORITHMS:
+        raise ValueError("Unsupported signature algorithm")
+    return alg
+
+
 async def read_body_with_limit(request: Request, max_length: int | None) -> bytes:
     """Read request body, aborting with 413 as soon as it exceeds max_length"""
 
