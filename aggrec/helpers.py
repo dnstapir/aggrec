@@ -118,6 +118,10 @@ class RequestVerifier:
             msg = "Signature-Input header missing"
             self.logger.warning(msg, extra=logger_extra)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
+        except http_sf.StructuredFieldError as exc:
+            msg = "Invalid Signature-Input header"
+            self.logger.warning(msg, extra=logger_extra, exc_info=exc)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
 
         if (
             self.accepted_algorithms is not None
