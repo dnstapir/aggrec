@@ -68,6 +68,7 @@ class RequestVerifier:
     def __init__(
         self,
         key_resolver: KeyResolver,
+        default_algorithm: str | None = None,
         accepted_algorithms: Iterable[str] | None = None,
         required_signed_components: Iterable[str] | None = None,
         max_content_length: int | None = None,
@@ -76,6 +77,7 @@ class RequestVerifier:
         self.covered_components: set[str] = {f'"{component}"' for component in (required_signed_components or [])}
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self.max_content_length = max_content_length
+        self.default_algorithm = default_algorithm
         self.accepted_algorithms = set(accepted_algorithms) if accepted_algorithms is not None else None
 
     def verify_content_digest(self, result: VerifyResult, content: bytes) -> None:
@@ -115,7 +117,7 @@ class RequestVerifier:
         if (
             self.accepted_algorithms is not None
             and alg not in self.accepted_algorithms
-            or not (signature_algorithm := SUPPORTED_SIGNATURE_ALGORITHMS.get(alg))
+            or not (signature_algorithm := SUPPORTED_SIGNATURE_ALGORITHMS.get(alg, self.default_algorithm))
         ):
             msg = "Unsupported signature algorithm"
             self.logger.warning(msg, extra=logger_extra)
