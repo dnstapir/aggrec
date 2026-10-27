@@ -13,7 +13,8 @@ import cryptography.hazmat.primitives.asymmetric.rsa as rsa
 import httpx2
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from http_message_signatures import HTTPMessageSigner, HTTPSignatureKeyResolver, algorithms
+from http_message_signatures import HTTPSignatureKeyResolver, algorithms
+from http_message_signatures.httpx2 import SignatureHooks, SignatureHooksMode, SigningOptions
 from jwcrypto.jwk import JWK
 
 DEFAULT_AGGREGATE_INTERVAL_DURATION = "PT1M"
@@ -158,15 +159,21 @@ def main() -> None:
 
     if key_id:
         key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
-        signer = HTTPMessageSigner(signature_algorithm=key_resolver.algorithm, key_resolver=key_resolver)
-        signer.sign(
-            req,
-            key_id=key_id,
-            label="client",
-            covered_component_ids=list(covered_component_ids),
-            include_alg=True,
-            body=req.content,
+
+        sign_options = SigningOptions(
+            **SigningOptions(
+                origin=args.server,
+                key_id=key_id,
+                label="client",
+                covered_component_ids=list(covered_component_ids),
+                include_alg=True,
+                key_resolver=key_resolver,
+                signature_algorithm=key_resolver.algorithm,
+            )
         )
+
+        hooks = SignatureHooks(mode=SignatureHooksMode.SIGN_REQUEST, sign_options=sign_options)
+        hooks.sign_request(req)
 
     for k, v in req.headers.items():
         print(f"{k}: {v}")
