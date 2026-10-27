@@ -1,10 +1,8 @@
-import hashlib
 import os
 import uuid
 
 import cryptography.hazmat.primitives.asymmetric.ec as ec
 import cryptography.hazmat.primitives.asymmetric.rsa as rsa
-import http_sf
 import httpx2
 import pytest
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -94,7 +92,6 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
 
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = "application/binary"
-    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.content).digest()})
 
     key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
     signer = HTTPMessageSigner(signature_algorithm=algorithm, key_resolver=key_resolver)
@@ -114,6 +111,7 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
         label="client",
         covered_component_ids=covered_component_ids,
         include_alg=True,
+        body=req.content,
     )
     print(req.headers)
 
@@ -164,7 +162,6 @@ async def test_http_unknown_signature():
 
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = "application/binary"
-    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.content).digest()})
 
     algorithm = UnsupportedHTTPSignatureAlgorithm
 
@@ -181,6 +178,7 @@ async def test_http_unknown_signature():
         label="client",
         covered_component_ids=covered_component_ids,
         include_alg=True,
+        body=req.content,
     )
     print(req.headers)
 
@@ -210,7 +208,6 @@ async def test_missing_http_signatures():
 
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = "application/binary"
-    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.content).digest()})
 
     key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
     signer = HTTPMessageSigner(signature_algorithm=algorithm, key_resolver=key_resolver)
@@ -226,6 +223,7 @@ async def test_missing_http_signatures():
         label="client",
         covered_component_ids=covered_component_ids,
         include_alg=True,
+        body=req.content,
     )
     print(req.headers)
     req.headers.pop("Signature-Input", None)

@@ -1,6 +1,5 @@
 import argparse
 import gzip
-import hashlib
 import json
 import logging
 import ssl
@@ -11,7 +10,6 @@ from urllib.parse import urljoin
 
 import cryptography.hazmat.primitives.asymmetric.ec as ec
 import cryptography.hazmat.primitives.asymmetric.rsa as rsa
-import http_sf
 import httpx2
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -157,7 +155,6 @@ def main() -> None:
     req.headers["Aggregate-Interval"] = args.interval
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
-    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.content).digest()})
 
     if key_id:
         key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
@@ -168,6 +165,7 @@ def main() -> None:
             label="client",
             covered_component_ids=list(covered_component_ids),
             include_alg=True,
+            body=req.content,
         )
 
     for k, v in req.headers.items():
