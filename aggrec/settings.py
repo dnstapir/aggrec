@@ -1,9 +1,9 @@
 import os
 from datetime import UTC, datetime
 from ipaddress import IPv4Address, IPv4Network, IPv6Network
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import AnyHttpUrl, BaseModel, BeforeValidator, ByteSize, Field, UrlConstraints
+from pydantic import AnyHttpUrl, BaseModel, BeforeValidator, ByteSize, Field, UrlConstraints, model_validator
 from pydantic.networks import IPvAnyAddress, IPvAnyNetwork
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, TomlConfigSettingsSource
@@ -62,6 +62,12 @@ class HttpSettings(BaseModel):
     max_content_length: ByteSize | None = Field(default=None)
     signature_algorithms: list[HttpSignatureAlgorithm] = Field(default=["ed25519", "ecdsa-p256-sha256"])
     default_signature_algorithm: HttpSignatureAlgorithm | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def verify_default_signature_algorithm(self) -> Self:
+        if self.default_signature_algorithm and self.default_signature_algorithm not in self.signature_algorithms:
+            raise ValueError("Default signature algorithm must be one of the signature algorithms")
+        return self
 
 
 class MqttSettings(BaseModel):
