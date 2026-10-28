@@ -6,29 +6,13 @@ from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_add
 import aniso8601
 import http_sf
 from fastapi import HTTPException, Request, status
-from http_message_signatures import HTTPMessageVerifier, HTTPSignatureKeyResolver, VerifyResult, algorithms
+from http_message_signatures import HTTPMessageVerifier, HTTPSignatureKeyResolver, VerifyResult
 from http_message_signatures.digests import ContentDigest
 from http_message_signatures.exceptions import InvalidSignature
 
 from dnstapir.key_resolver import KeyResolver, PublicKey
 
-SUPPORTED_SIGNATURE_ALGORITHMS: dict[str, type] = {
-    algorithm_cls.algorithm_id: algorithm_cls
-    for algorithm_cls in [
-        algorithms.RSA_PSS_SHA512,
-        algorithms.RSA_V1_5_SHA256,
-        algorithms.ED25519,
-        algorithms.ECDSA_P256_SHA256,
-    ]
-}
-
-
-def validate_signature_algorithm(alg: str) -> str:
-    """Validate that the given signature algorithm is supported."""
-
-    if alg not in SUPPORTED_SIGNATURE_ALGORITHMS:
-        raise ValueError("Unsupported signature algorithm")
-    return alg
+from .algorithms import SUPPORTED_SIGNATURE_ALGORITHMS
 
 
 async def read_body_with_limit(request: Request, max_length: int | None) -> bytes:
@@ -68,16 +52,20 @@ class RequestVerifier:
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self.max_content_length = max_content_length
         self.default_algorithm = default_algorithm
-        self.accepted_algorithms = set(accepted_algorithms) if accepted_algorithms is not None else None
+        self.accepted_algorithms = (
+            set(accepted_algorithms) if accepted_algorithms is not None else set(SUPPORTED_SIGNATURE_ALGORITHMS)
+        )
 
     @staticmethod
-    def get_algorithm(headers: dict) -> str | None:
+    def get_algorithm(headers: dict, default_algorithm: str | None = None) -> str | None:
         parse_signature_input = http_sf.parse(headers["signature-input"].encode(), tltype="dictionary")
         for _label, values in parse_signature_input.items():
             for item in values:
                 if isinstance(item, dict) and (alg := item.get("alg")) and isinstance(alg, str):
                     return str(alg)
-        return
+        if default_algorithm is not None:
+            return default_algorithm
+        return None
 
     async def verify(self, request: Request) -> tuple[VerifyResult, bytes]:
         """Verify request and return signer"""
@@ -91,7 +79,7 @@ class RequestVerifier:
         self.logger.debug("Verify HTTP request", extra=logger_extra)
 
         try:
-            alg = self.get_algorithm(request.headers)
+            alg = self.get_algorithm(request.headers, self.default_algorithm)
         except KeyError as exc:
             msg = "Signature-Input header missing"
             self.logger.warning(msg, extra=logger_extra)
@@ -101,14 +89,18 @@ class RequestVerifier:
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
 
-        signature_algorithm = SUPPORTED_SIGNATURE_ALGORITHMS.get(alg) or SUPPORTED_SIGNATURE_ALGORITHMS.get(
-            self.default_algorithm
-        )
+        if alg is None:
+            msg = "Signature algorithm not specified"
+            self.logger.warning(msg, extra=logger_extra)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
-        if not signature_algorithm or (
-            self.accepted_algorithms is not None and signature_algorithm.algorithm_id not in self.accepted_algorithms
-        ):
+        if not (signature_algorithm := SUPPORTED_SIGNATURE_ALGORITHMS.get(alg)):
             msg = "Unsupported signature algorithm"
+            self.logger.warning(msg, extra=logger_extra)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
+
+        if alg not in self.accepted_algorithms:
+            msg = "Signature algorithm not accepted"
             self.logger.warning(msg, extra=logger_extra)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
