@@ -52,9 +52,6 @@ class UnsupportedHTTPSignatureAlgorithm(HTTPSignatureAlgorithm):
     def sign(self, message: bytes):
         return os.urandom(64)  # Return 64 random bytes as a fake signature
 
-    def verify(self, signature: bytes, message: bytes):
-        raise NotImplementedError("Unsupported algorithm")
-
 
 class TestHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
     def __init__(self, key_id: str, algorithm: HTTPSignatureAlgorithm):
@@ -82,7 +79,11 @@ class TestHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
         raise KeyError(key_id)
 
 
-async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
+async def _test_http_signatures(
+    algorithm: HTTPSignatureAlgorithm,
+    signature_algorithm: HTTPSignatureAlgorithm | None = None,
+    remove_signature: bool = False,
+):
     key_id = "test"
     covered_component_ids = ["content-type", "content-digest", "content-length"]
 
@@ -94,10 +95,9 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
     req.headers["Content-Type"] = "application/binary"
 
     key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
-    signer = HTTPMessageSigner(signature_algorithm=algorithm, key_resolver=key_resolver)
+    signer = HTTPMessageSigner(signature_algorithm=signature_algorithm or algorithm, key_resolver=key_resolver)
     verifier = RequestVerifier(
         key_resolver=key_resolver,
-        accepted_algorithms={"ed25519", "ecdsa-p256-sha256", "rsa-v1_5-sha256", "rsa-pss-sha512"},
         required_signed_components=["content-type", "content-digest", "content-length"],
     )
     verifier2 = RequestVerifier(
@@ -113,7 +113,10 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
         include_alg=True,
         body=req.content,
     )
-    print(req.headers)
+
+    if remove_signature:
+        req.headers.pop("signature", None)
+        req.headers.pop("signature-input", None)
 
     request = build_starlette_request(
         method="POST",
@@ -124,7 +127,6 @@ async def _test_http_signatures(algorithm: HTTPSignatureAlgorithm):
     )
 
     result, _ = await verifier.verify(request)
-    print(result)
 
     with pytest.raises(HTTPException) as exc_info:
         await verifier2.verify(request)
@@ -153,90 +155,15 @@ async def test_http_signatures_ed25519():
 
 @pytest.mark.asyncio
 async def test_http_unknown_signature():
-    key_id = "test"
-    covered_component_ids = ["content-type", "content-digest", "content-length"]
-
-    client = httpx2.Client(verify=False)
-
-    req = client.build_request("POST", "https://localhost/test", content=os.urandom(1024))
-
-    req.headers["X-Request-ID"] = str(uuid.uuid4())
-    req.headers["Content-Type"] = "application/binary"
-
-    algorithm = UnsupportedHTTPSignatureAlgorithm
-
-    key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithms.ED25519)
-    signer = HTTPMessageSigner(signature_algorithm=algorithm, key_resolver=key_resolver)
-    verifier = RequestVerifier(
-        key_resolver=key_resolver,
-        required_signed_components=["content-type", "content-digest", "content-length"],
-    )
-
-    signer.sign(
-        req,
-        key_id=key_id,
-        label="client",
-        covered_component_ids=covered_component_ids,
-        include_alg=True,
-        body=req.content,
-    )
-    print(req.headers)
-
-    request = build_starlette_request(
-        method="POST",
-        server="localhost",
-        path="/test",
-        headers=req.headers,
-        content=req.content,
-    )
-
     with pytest.raises(HTTPException) as exc_info:
-        await verifier.verify(request)
+        await _test_http_signatures(algorithms.ED25519, UnsupportedHTTPSignatureAlgorithm)
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Unsupported signature algorithm"
 
 
 @pytest.mark.asyncio
 async def test_missing_http_signatures():
-    algorithm = algorithms.ED25519
-    key_id = "test"
-    covered_component_ids = ["content-type", "content-digest", "content-length"]
-
-    client = httpx2.Client(verify=False)
-
-    req = client.build_request("POST", "https://localhost/test", content=os.urandom(1024))
-
-    req.headers["X-Request-ID"] = str(uuid.uuid4())
-    req.headers["Content-Type"] = "application/binary"
-
-    key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
-    signer = HTTPMessageSigner(signature_algorithm=algorithm, key_resolver=key_resolver)
-    verifier = RequestVerifier(
-        key_resolver=key_resolver,
-        accepted_algorithms={"ed25519", "ecdsa-p256-sha256", "rsa-v1_5-sha256", "rsa-pss-sha512"},
-        required_signed_components=["content-type", "content-digest", "content-length"],
-    )
-
-    signer.sign(
-        req,
-        key_id=key_id,
-        label="client",
-        covered_component_ids=covered_component_ids,
-        include_alg=True,
-        body=req.content,
-    )
-    print(req.headers)
-    req.headers.pop("Signature-Input", None)
-
-    request = build_starlette_request(
-        method="POST",
-        server="localhost",
-        path="/test",
-        headers=req.headers,
-        content=req.content,
-    )
-
     with pytest.raises(HTTPException) as exc_info:
-        await verifier.verify(request)
+        await _test_http_signatures(algorithms.ED25519, remove_signature=True)
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Signature-Input header missing"
