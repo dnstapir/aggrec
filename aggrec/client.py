@@ -161,15 +161,13 @@ def main() -> None:
         key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
 
         sign_options = SigningOptions(
-            **SigningOptions(
-                origin=args.server,
-                key_id=key_id,
-                label="client",
-                covered_component_ids=list(covered_component_ids),
-                include_alg=True,
-                key_resolver=key_resolver,
-                signature_algorithm=key_resolver.algorithm,
-            )
+            origin=args.server,
+            key_id=key_id,
+            label="client",
+            covered_component_ids=list(covered_component_ids),
+            include_alg=True,
+            key_resolver=key_resolver,
+            signature_algorithm=key_resolver.algorithm,
         )
 
         hooks = SignatureHooks(mode=SignatureHooksMode.SIGN_REQUEST, sign_options=sign_options)
