@@ -84,6 +84,7 @@ async def _test_http_signatures(
     signature_algorithm: HTTPSignatureAlgorithm | None = None,
     remove_signature: bool = False,
     tamper_content: bool = False,
+    accepted_algorithms: list[str] | None = None,
 ):
     key_id = "test"
     covered_component_ids = ["content-type", "content-digest", "content-length"]
@@ -99,6 +100,7 @@ async def _test_http_signatures(
     signer = HTTPMessageSigner(signature_algorithm=signature_algorithm or algorithm, key_resolver=key_resolver)
     verifier = RequestVerifier(
         key_resolver=key_resolver,
+        accepted_algorithms=accepted_algorithms,
         require_components=["content-type", "content-digest", "content-length"],
     )
     verifier2 = RequestVerifier(
@@ -179,3 +181,16 @@ async def test_http_signatures_content_digest_mismatch():
         await _test_http_signatures(algorithms.ED25519, tamper_content=True)
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Content-Digest verification failed"
+
+
+@pytest.mark.asyncio
+async def test_http_signatures_accepted_algorithm():
+    return await _test_http_signatures(algorithms.ED25519, accepted_algorithms=["ed25519"])
+
+
+@pytest.mark.asyncio
+async def test_http_signatures_algorithm_not_accepted():
+    with pytest.raises(HTTPException) as exc_info:
+        await _test_http_signatures(algorithms.ECDSA_P256_SHA256, accepted_algorithms=["ed25519"])
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Signature algorithm not accepted"
