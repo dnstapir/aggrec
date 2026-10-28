@@ -46,22 +46,6 @@ async def read_body_with_limit(request: Request, max_length: int | None) -> byte
     return b"".join(chunks)
 
 
-class ContentDigestException(ValueError):
-    pass
-
-
-class InvalidContentDigest(ContentDigestException):
-    pass
-
-
-class UnsupportedContentDigestAlgorithm(ContentDigestException):
-    pass
-
-
-class ContentDigestMissing(ContentDigestException):
-    pass
-
-
 class CustomHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
     def __init__(self, key_resolver: KeyResolver):
         self.key_resolver = key_resolver
@@ -155,14 +139,11 @@ class RequestVerifier:
                 if ContentDigest.verify_components(result.covered_components, content):
                     self.logger.debug("Content-Digest verified")
                     return result, content
-            except InvalidContentDigest as exc:
+            except InvalidSignature as exc:
                 msg = "Content-Digest verification failed"
                 self.logger.warning(msg, extra=logger_extra, exc_info=exc)
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
-            except UnsupportedContentDigestAlgorithm:
-                self.logger.debug("Unsupported Content-Digest algorithm")
-            except ContentDigestMissing:
-                self.logger.debug("Content-Digest header missing")
+            self.logger.debug("Content-Digest not covered by signature")
 
         msg = "Unable to verify Content-Digest"
         self.logger.warning(msg, extra=logger_extra)
