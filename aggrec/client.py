@@ -42,7 +42,7 @@ class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
             if not isinstance(self.private_key.curve, ec.SECP256R1):
                 raise ValueError("Unsupported curve")
             self.algorithm = algorithms.ECDSA_P256_SHA256
-        elif isinstance(self._private_key, rsa.RSAPrivateKey):
+        elif isinstance(self.private_key, rsa.RSAPrivateKey):
             self.algorithm = algorithms.RSA_V1_5_SHA256
         else:
             raise ValueError("Unsupported algorithm")

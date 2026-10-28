@@ -5,8 +5,8 @@ OPENAPI=		aggrec-api.yaml
 
 DEPENDS=		$(BUILDINFO)
 
-PRIVATE_KEYS=		test-private-p256.pem test-private-ed25519.pem
-PUBLIC_KEYS=		clients/test-p256.pem clients/test-ed25519.pem
+PRIVATE_KEYS=		test-private-p256.pem test-private-ed25519.pem test-private-rsa2048.pem
+PUBLIC_KEYS=		clients/test-p256.pem clients/test-ed25519.pem clients/test-rsa2048.pem
 
 
 all: $(DEPENDS) $(PUBLIC_KEYS)
@@ -25,10 +25,10 @@ container: $(DEPENDS)
 push-container:
 	docker push $(CONTAINER)
 
-server: $(DEPENDS) $($(PUBLIC_KEYS))
+server: $(DEPENDS) $(PUBLIC_KEYS)
 	uv run aggrec_server --host 127.0.0.1 --port 8080 --debug
 
-test-client: test-client-p256 test-client-ed25519
+test-client: test-client-p256 test-client-ed25519 test-client-rsa2048
 
 test-client-p256: test-private-p256.pem
 	openssl rand 1024 > random.bin
@@ -42,14 +42,21 @@ test-client-ed25519: test-private-ed25519.pem
 	openssl rand 1024 > random.bin
 	uv run aggrec_client --http-key-id test-ed25519 --http-key-file $< random.bin
 
+test-client-rsa2048: test-private-rsa2048.pem
+	openssl rand 1024 > random.bin
+	uv run aggrec_client --http-key-id test-rsa2048 --http-key-file $< random.bin
+
 test-client-large: test-private-ed25519.pem
 	openssl rand 10485760 > random.bin
 	uv run aggrec_client --http-key-id test-ed25519 --http-key-file $< random.bin
 
-keys: clients/test-p256.pem clients/test-ed25519.pem
+keys: clients/test-p256.pem clients/test-ed25519.pem clients/test-rsa2048.pem
 
 test-private-p256.pem:
 	openssl ecparam -genkey -name prime256v1 -noout -out $@
+
+test-private-rsa2048.pem:
+	openssl genpkey -algorithm RSA -out $@ -pkeyopt rsa_keygen_bits:2048
 
 test-private-ed25519.pem:
 	openssl genpkey -algorithm ed25519 -out $@
@@ -62,6 +69,9 @@ clients/test-p256.pem: clients test-private-p256.pem
 
 clients/test-ed25519.pem: clients test-private-ed25519.pem
 	openssl pkey -in test-private-ed25519.pem -pubout -out $@
+
+clients/test-rsa2048.pem: clients test-private-rsa2048.pem
+	openssl pkey -in test-private-rsa2048.pem -pubout -out $@
 
 test: $(DEPENDS) $(PUBLIC_KEYS)
 	uv run pytest --ruff --ruff-format
