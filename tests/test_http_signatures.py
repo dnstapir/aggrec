@@ -83,6 +83,7 @@ async def _test_http_signatures(
     algorithm: HTTPSignatureAlgorithm,
     signature_algorithm: HTTPSignatureAlgorithm | None = None,
     remove_signature: bool = False,
+    tamper_content: bool = False,
 ):
     key_id = "test"
     covered_component_ids = ["content-type", "content-digest", "content-length"]
@@ -118,12 +119,15 @@ async def _test_http_signatures(
         req.headers.pop("signature", None)
         req.headers.pop("signature-input", None)
 
+    # Replace body with different content of the same length, keeping signed headers valid
+    content = os.urandom(len(req.content)) if tamper_content else req.content
+
     request = build_starlette_request(
         method="POST",
         server="localhost",
         path="/test",
         headers=req.headers,
-        content=req.content,
+        content=content,
     )
 
     result, _ = await verifier.verify(request)
@@ -167,3 +171,11 @@ async def test_missing_http_signatures():
         await _test_http_signatures(algorithms.ED25519, remove_signature=True)
     assert exc_info.value.status_code == 401
     assert exc_info.value.detail == "Signature-Input header missing"
+
+
+@pytest.mark.asyncio
+async def test_http_signatures_content_digest_mismatch():
+    with pytest.raises(HTTPException) as exc_info:
+        await _test_http_signatures(algorithms.ED25519, tamper_content=True)
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Content-Digest verification failed"
