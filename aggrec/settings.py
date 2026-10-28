@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSetti
 from dnstapir.key_cache import KeyCacheSettings
 from dnstapir.opentelemetry import OtlpSettings
 
-from .helpers import SUPPORTED_SIGNATURE_ALGORITHMS, validate_signature_algorithm
+from .algorithms import SUPPORTED_SIGNATURE_ALGORITHMS, validate_signature_algorithm
 
 ENV_PREFIX = "AGGREC_"
 
