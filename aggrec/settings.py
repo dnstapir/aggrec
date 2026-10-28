@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from ipaddress import IPv4Address, IPv4Network, IPv6Network
 from typing import Annotated, Self
 
-from pydantic import AnyHttpUrl, BaseModel, BeforeValidator, ByteSize, Field, UrlConstraints, model_validator
+from pydantic import AfterValidator, AnyHttpUrl, BaseModel, ByteSize, Field, UrlConstraints, model_validator
 from pydantic.networks import IPvAnyAddress, IPvAnyNetwork
 from pydantic_core import Url
 from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSettingsSource, TomlConfigSettingsSource
@@ -30,7 +30,7 @@ MongodbUrl = Annotated[
     UrlConstraints(allowed_schemes=["mongodb", "mongodb+srv", "mongomock"], host_required=True),
 ]
 
-HttpSignatureAlgorithm = Annotated[str, BeforeValidator(validate_signature_algorithm)]
+HttpSignatureAlgorithm = Annotated[str, AfterValidator(validate_signature_algorithm)]
 
 
 class HttpSettings(BaseModel):
