@@ -1,4 +1,3 @@
-import hashlib
 import logging
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
@@ -8,6 +7,7 @@ import aniso8601
 import http_sf
 from fastapi import HTTPException, Request, status
 from http_message_signatures import HTTPMessageVerifier, HTTPSignatureKeyResolver, VerifyResult, algorithms
+from http_message_signatures.digests import ContentDigest
 from http_message_signatures.exceptions import InvalidSignature
 
 from dnstapir.key_resolver import KeyResolver, PublicKey
@@ -20,11 +20,6 @@ SUPPORTED_SIGNATURE_ALGORITHMS: dict[str, type] = {
         algorithms.ED25519,
         algorithms.ECDSA_P256_SHA256,
     ]
-}
-
-HASH_ALGORITHMS = {
-    "sha-256": hashlib.sha256,
-    "sha-512": hashlib.sha512,
 }
 
 
@@ -81,27 +76,15 @@ class RequestVerifier:
         key_resolver: KeyResolver,
         default_algorithm: str | None = None,
         accepted_algorithms: Iterable[str] | None = None,
-        required_signed_components: Iterable[str] | None = None,
+        require_components: Iterable[str] | None = None,
         max_content_length: int | None = None,
     ):
         self.http_key_resolver = CustomHTTPSignatureKeyResolver(key_resolver)
-        self.covered_components: set[str] = {f'"{component}"' for component in (required_signed_components or [])}
+        self.require_components: set[str] = {f'"{component}"' for component in (require_components or [])}
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self.max_content_length = max_content_length
         self.default_algorithm = default_algorithm
         self.accepted_algorithms = set(accepted_algorithms) if accepted_algorithms is not None else None
-
-    def verify_content_digest(self, result: VerifyResult, content: bytes) -> None:
-        """Verify Content-Digest"""
-        if content_digest := result.covered_components.get('"content-digest"'):
-            content_digest_value = http_sf.parse(content_digest.encode(), tltype="dictionary")
-            for alg, func in HASH_ALGORITHMS.items():
-                if digest := content_digest_value.get(alg):
-                    if digest[0] == func(content).digest():
-                        return
-                    raise InvalidContentDigest
-            raise UnsupportedContentDigestAlgorithm
-        raise ContentDigestMissing
 
     @staticmethod
     def get_algorithm(headers: dict) -> str | None:
@@ -151,7 +134,7 @@ class RequestVerifier:
         )
 
         try:
-            results = verifier.verify(request)
+            results = verifier.verify(request, require_components=list(self.require_components))
         except KeyError as exc:
             msg = "Unknown HTTP signature key"
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
@@ -165,20 +148,13 @@ class RequestVerifier:
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_400_BAD_REQUEST, msg) from exc
 
-        if self.covered_components:
-            for result in results:
-                if not all(header in result.covered_components for header in self.covered_components):
-                    msg = "Missing required headers in signature"
-                    self.logger.warning(msg, extra=logger_extra)
-                    raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
-
         content = await read_body_with_limit(request, self.max_content_length)
 
         for result in results:
             try:
-                self.verify_content_digest(result, content)
-                self.logger.debug("Content-Digest verified")
-                return result, content
+                if ContentDigest.verify_components(result.covered_components, content):
+                    self.logger.debug("Content-Digest verified")
+                    return result, content
             except InvalidContentDigest as exc:
                 msg = "Content-Digest verification failed"
                 self.logger.warning(msg, extra=logger_extra, exc_info=exc)

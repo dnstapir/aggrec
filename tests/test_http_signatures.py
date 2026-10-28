@@ -98,11 +98,11 @@ async def _test_http_signatures(
     signer = HTTPMessageSigner(signature_algorithm=signature_algorithm or algorithm, key_resolver=key_resolver)
     verifier = RequestVerifier(
         key_resolver=key_resolver,
-        required_signed_components=["content-type", "content-digest", "content-length"],
+        require_components=["content-type", "content-digest", "content-length"],
     )
     verifier2 = RequestVerifier(
         key_resolver=key_resolver,
-        required_signed_components=["user-agent"],
+        require_components=["user-agent"],
     )
 
     signer.sign(
