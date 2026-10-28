@@ -11,7 +11,7 @@ from pydantic_settings import BaseSettings, EnvSettingsSource, PydanticBaseSetti
 from dnstapir.key_cache import KeyCacheSettings
 from dnstapir.opentelemetry import OtlpSettings
 
-from .helpers import validate_signature_algorithm
+from .helpers import SUPPORTED_SIGNATURE_ALGORITHMS, validate_signature_algorithm
 
 ENV_PREFIX = "AGGREC_"
 
@@ -60,7 +60,7 @@ class HttpSettings(BaseModel):
     )
 
     max_content_length: ByteSize | None = Field(default=None)
-    signature_algorithms: list[HttpSignatureAlgorithm] = Field(default=["ed25519", "ecdsa-p256-sha256"])
+    signature_algorithms: list[HttpSignatureAlgorithm] = Field(default=list(SUPPORTED_SIGNATURE_ALGORITHMS.keys()))
     default_signature_algorithm: HttpSignatureAlgorithm | None = Field(default=None)
 
     @model_validator(mode="after")
