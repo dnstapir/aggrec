@@ -8,6 +8,8 @@ DEPENDS=		$(BUILDINFO)
 PRIVATE_KEYS=		test-private-p256.pem test-private-ed25519.pem test-private-rsa2048.pem
 PUBLIC_KEYS=		clients/test-p256.pem clients/test-ed25519.pem clients/test-rsa2048.pem
 
+RANDOM_FILES=		random-p256.bin random-ed25519.bin random-rsa2048.bin random-ed25519-large.bin
+
 
 all: $(DEPENDS) $(PUBLIC_KEYS)
 
@@ -31,12 +33,12 @@ server: $(DEPENDS) $(PUBLIC_KEYS)
 test-client: test-client-p256 test-client-ed25519 test-client-rsa2048
 
 test-client-p256: test-private-p256.pem
-	openssl rand 1024 > random-p256-1.bin
-	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256-1.bin
-	openssl rand 1024 > random-p256-2.bin
-	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256-2.bin
-	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256-1.bin
-	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256-1.bin
+	openssl rand 1024 > random-p256.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256.bin
+	openssl rand 1024 > random-p256.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256.bin
 
 test-client-ed25519: test-private-ed25519.pem
 	openssl rand 1024 > random-ed25519.bin
@@ -89,7 +91,7 @@ reformat:
 
 clean:
 	rm -f $(PUBLIC_KEYS) $(PRIVATE_KEYS)
-	rm -fr clients random*.bin
+	rm -fr clients $(RANDOM_FILES)
 	rm -f $(BUILDINFO) $(OPENAPI)
 
 realclean: clean
