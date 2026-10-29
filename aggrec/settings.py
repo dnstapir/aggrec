@@ -60,7 +60,7 @@ class HttpSettings(BaseModel):
     )
 
     max_content_length: ByteSize | None = Field(default=None)
-    signature_algorithms: list[HttpSignatureAlgorithm] = Field(default=list(SUPPORTED_SIGNATURE_ALGORITHMS.keys()))
+    signature_algorithms: list[HttpSignatureAlgorithm] = Field(default=sorted(SUPPORTED_SIGNATURE_ALGORITHMS.keys()))
     default_signature_algorithm: HttpSignatureAlgorithm | None = Field(default=None)
 
     @model_validator(mode="after")
@@ -135,6 +135,7 @@ class Settings(BaseSettings):
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
         return (
+            init_settings,
             EnvSettingsSource(
                 settings_cls,
                 env_prefix=ENV_PREFIX,
