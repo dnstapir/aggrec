@@ -31,24 +31,24 @@ server: $(DEPENDS) $(PUBLIC_KEYS)
 test-client: test-client-p256 test-client-ed25519 test-client-rsa2048
 
 test-client-p256: test-private-p256.pem
-	openssl rand 1024 > random.bin
-	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
-	openssl rand 1024 > random.bin
-	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
-	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
-	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random.bin
+	openssl rand 1024 > random-p256-1.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256-1.bin
+	openssl rand 1024 > random-p256-2.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256-2.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256-1.bin
+	uv run aggrec_client --http-key-id test-p256 --http-key-file $< random-p256-1.bin
 
 test-client-ed25519: test-private-ed25519.pem
-	openssl rand 1024 > random.bin
-	uv run aggrec_client --http-key-id test-ed25519 --http-key-file $< random.bin
+	openssl rand 1024 > random-ed25519.bin
+	uv run aggrec_client --http-key-id test-ed25519 --http-key-file $< random-ed25519.bin
 
 test-client-rsa2048: test-private-rsa2048.pem
-	openssl rand 1024 > random.bin
-	uv run aggrec_client --http-key-id test-rsa2048 --http-key-file $< random.bin
+	openssl rand 1024 > random-rsa2048.bin
+	uv run aggrec_client --http-key-id test-rsa2048 --http-key-file $< random-rsa2048.bin
 
 test-client-large: test-private-ed25519.pem
-	openssl rand 10485760 > random.bin
-	uv run aggrec_client --http-key-id test-ed25519 --http-key-file $< random.bin
+	openssl rand 10485760 > random-ed25519-large.bin
+	uv run aggrec_client --http-key-id test-ed25519 --http-key-file $< random-ed25519-large.bin
 
 keys: clients/test-p256.pem clients/test-ed25519.pem clients/test-rsa2048.pem
 
@@ -89,7 +89,7 @@ reformat:
 
 clean:
 	rm -f $(PUBLIC_KEYS) $(PRIVATE_KEYS)
-	rm -fr clients random.bin
+	rm -fr clients random*.bin
 	rm -f $(BUILDINFO) $(OPENAPI)
 
 realclean: clean
