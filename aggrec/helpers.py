@@ -78,6 +78,7 @@ class RequestVerifier:
 
         self.logger.debug("Verify HTTP request", extra=logger_extra)
 
+        # Get signature algorithm from headers
         try:
             alg = self.get_algorithm(request.headers, self.default_algorithm)
         except KeyError as exc:
@@ -89,26 +90,26 @@ class RequestVerifier:
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
 
+        # We must have an algorithm
         if alg is None:
             msg = "Signature algorithm not specified"
             self.logger.warning(msg, extra=logger_extra)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
+        # Algorithm must be supported
         if not (signature_algorithm := SUPPORTED_SIGNATURE_ALGORITHMS.get(alg)):
             msg = "Unsupported signature algorithm"
             self.logger.warning(msg, extra=logger_extra)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
+        # Algorithm must be accepted
         if alg not in self.accepted_algorithms:
             msg = "Signature algorithm not accepted"
             self.logger.warning(msg, extra=logger_extra)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
 
-        verifier = HTTPMessageVerifier(
-            signature_algorithm=signature_algorithm,
-            key_resolver=self.http_key_resolver,
-        )
-
+        # Verify HTTP signature
+        verifier = HTTPMessageVerifier(signature_algorithm=signature_algorithm, key_resolver=self.http_key_resolver)
         try:
             results = verifier.verify(request, require_components=list(self.require_components))
         except KeyError as exc:
