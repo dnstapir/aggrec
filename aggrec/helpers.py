@@ -112,10 +112,6 @@ class RequestVerifier:
         verifier = HTTPMessageVerifier(signature_algorithm=signature_algorithm, key_resolver=self.http_key_resolver)
         try:
             results = verifier.verify(request, require_components=list(self.require_components))
-        except KeyError as exc:
-            msg = "Unknown HTTP signature key"
-            self.logger.warning(msg, extra=logger_extra, exc_info=exc)
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
         except InvalidSignature as exc:
             msg = "Invalid HTTP signature"
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
