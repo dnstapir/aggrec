@@ -1,12 +1,10 @@
 import asyncio
-import hashlib
 import os
 import uuid
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
-import http_sf
 import httpx2
 import pytest
 from aiobotocore.response import AioStreamingBody
@@ -82,7 +80,6 @@ def get_signed_request(
     request = client.build_request("POST", url, content=content, headers=headers)
     request.headers["X-Request-ID"] = str(uuid.uuid4())
     request.headers["Content-Type"] = "application/binary"
-    request.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(request.content).digest()})
 
     signer = HTTPMessageSigner(signature_algorithm=key_resolver.algorithm, key_resolver=key_resolver)
     signer.sign(
@@ -91,6 +88,7 @@ def get_signed_request(
         label="client",
         covered_component_ids=covered_component_ids,
         include_alg=True,
+        body=content,
     )
 
     return request

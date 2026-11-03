@@ -294,8 +294,10 @@ Derived components MUST NOT be included in the signature input.
 
     with tracer.start_as_current_span("http_request_verifier"):
         http_request_verifier = RequestVerifier(
+            default_algorithm=request.app.settings.http.default_signature_algorithm,
+            accepted_algorithms=request.app.settings.http.signature_algorithms,
             key_resolver=request.app.key_resolver,
-            required_signed_components=required_signed_components,
+            require_components=required_signed_components,
             max_content_length=max_content_length,
         )
         request_verifier_result, verified_content = await http_request_verifier.verify(request)

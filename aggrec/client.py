@@ -1,6 +1,5 @@
 import argparse
 import gzip
-import hashlib
 import json
 import logging
 import ssl
@@ -11,11 +10,11 @@ from urllib.parse import urljoin
 
 import cryptography.hazmat.primitives.asymmetric.ec as ec
 import cryptography.hazmat.primitives.asymmetric.rsa as rsa
-import http_sf
 import httpx2
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
-from http_message_signatures import HTTPMessageSigner, HTTPSignatureKeyResolver, algorithms
+from http_message_signatures import HTTPSignatureKeyResolver, algorithms
+from http_message_signatures.httpx2 import SignatureHooks, SignatureHooksMode, SigningOptions
 from jwcrypto.jwk import JWK
 
 DEFAULT_AGGREGATE_INTERVAL_DURATION = "PT1M"
@@ -43,7 +42,7 @@ class MyHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
             if not isinstance(self.private_key.curve, ec.SECP256R1):
                 raise ValueError("Unsupported curve")
             self.algorithm = algorithms.ECDSA_P256_SHA256
-        elif isinstance(self._private_key, rsa.RSAPrivateKey):
+        elif isinstance(self.private_key, rsa.RSAPrivateKey):
             self.algorithm = algorithms.RSA_V1_5_SHA256
         else:
             raise ValueError("Unsupported algorithm")
@@ -157,18 +156,22 @@ def main() -> None:
     req.headers["Aggregate-Interval"] = args.interval
     req.headers["X-Request-ID"] = str(uuid.uuid4())
     req.headers["Content-Type"] = DEFAULT_CONTENT_TYPE
-    req.headers["Content-Digest"] = http_sf.ser({"sha-256": hashlib.sha256(req.content).digest()})
 
     if key_id:
         key_resolver = MyHTTPSignatureKeyResolver(args.http_key_file)
-        signer = HTTPMessageSigner(signature_algorithm=key_resolver.algorithm, key_resolver=key_resolver)
-        signer.sign(
-            req,
+
+        sign_options = SigningOptions(
+            origin=args.server,
             key_id=key_id,
             label="client",
             covered_component_ids=list(covered_component_ids),
             include_alg=True,
+            key_resolver=key_resolver,
+            signature_algorithm=key_resolver.algorithm,
         )
+
+        hooks = SignatureHooks(mode=SignatureHooksMode.SIGN_REQUEST, sign_options=sign_options)
+        hooks.sign_request(req)
 
     for k, v in req.headers.items():
         print(f"{k}: {v}")

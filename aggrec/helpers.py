@@ -1,4 +1,3 @@
-import hashlib
 import logging
 from collections.abc import Iterable
 from datetime import UTC, datetime, timedelta
@@ -7,20 +6,13 @@ from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network, ip_add
 import aniso8601
 import http_sf
 from fastapi import HTTPException, Request, status
-from http_message_signatures import (
-    HTTPMessageVerifier,
-    HTTPSignatureAlgorithm,
-    HTTPSignatureKeyResolver,
-    VerifyResult,
-    algorithms,
-)
-from http_message_signatures.algorithms import signature_algorithms as supported_signature_algorithms
+from http_message_signatures import HTTPMessageVerifier, HTTPSignatureKeyResolver, VerifyResult
+from http_message_signatures.digests import ContentDigest
 from http_message_signatures.exceptions import InvalidSignature
 
 from dnstapir.key_resolver import KeyResolver, PublicKey
 
-DEFAULT_SIGNATURE_ALGORITHM = algorithms.ECDSA_P256_SHA256
-HASH_ALGORITHMS = {"sha-256": hashlib.sha256, "sha-512": hashlib.sha512}
+from .algorithms import SUPPORTED_SIGNATURE_ALGORITHMS
 
 
 async def read_body_with_limit(request: Request, max_length: int | None) -> bytes:
@@ -38,22 +30,6 @@ async def read_body_with_limit(request: Request, max_length: int | None) -> byte
     return b"".join(chunks)
 
 
-class ContentDigestException(ValueError):
-    pass
-
-
-class InvalidContentDigest(ContentDigestException):
-    pass
-
-
-class UnsupportedContentDigestAlgorithm(ContentDigestException):
-    pass
-
-
-class ContentDigestMissing(ContentDigestException):
-    pass
-
-
 class CustomHTTPSignatureKeyResolver(HTTPSignatureKeyResolver):
     def __init__(self, key_resolver: KeyResolver):
         self.key_resolver = key_resolver
@@ -66,36 +42,30 @@ class RequestVerifier:
     def __init__(
         self,
         key_resolver: KeyResolver,
-        algorithm: HTTPSignatureAlgorithm | None = None,
-        required_signed_components: Iterable[str] | None = None,
+        default_algorithm: str | None = None,
+        accepted_algorithms: Iterable[str] | None = None,
+        require_components: Iterable[str] | None = None,
         max_content_length: int | None = None,
     ):
-        self.algorithm = algorithm or DEFAULT_SIGNATURE_ALGORITHM
         self.http_key_resolver = CustomHTTPSignatureKeyResolver(key_resolver)
-        self.covered_components: set[str] = {f'"{component}"' for component in (required_signed_components or [])}
+        self.require_components: set[str] = {f'"{component}"' for component in (require_components or [])}
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self.max_content_length = max_content_length
-
-    def verify_content_digest(self, result: VerifyResult, content: bytes) -> None:
-        """Verify Content-Digest"""
-        if content_digest := result.covered_components.get('"content-digest"'):
-            content_digest_value = http_sf.parse(content_digest.encode(), tltype="dictionary")
-            for alg, func in HASH_ALGORITHMS.items():
-                if digest := content_digest_value.get(alg):
-                    if digest[0] == func(content).digest():
-                        return
-                    raise InvalidContentDigest
-            raise UnsupportedContentDigestAlgorithm
-        raise ContentDigestMissing
+        self.default_algorithm = default_algorithm
+        self.accepted_algorithms = (
+            set(accepted_algorithms) if accepted_algorithms is not None else set(SUPPORTED_SIGNATURE_ALGORITHMS)
+        )
 
     @staticmethod
-    def get_algorithm(headers: dict) -> str | None:
+    def get_algorithm(headers: dict, default_algorithm: str | None = None) -> str | None:
         parse_signature_input = http_sf.parse(headers["signature-input"].encode(), tltype="dictionary")
         for _label, values in parse_signature_input.items():
             for item in values:
                 if isinstance(item, dict) and (alg := item.get("alg")) and isinstance(alg, str):
                     return str(alg)
-        return
+        if default_algorithm is not None:
+            return default_algorithm
+        return None
 
     async def verify(self, request: Request) -> tuple[VerifyResult, bytes]:
         """Verify request and return signer"""
@@ -108,19 +78,40 @@ class RequestVerifier:
 
         self.logger.debug("Verify HTTP request", extra=logger_extra)
 
-        alg = self.get_algorithm(request.headers)
-        signature_algorithm = supported_signature_algorithms[alg]
-        verifier = HTTPMessageVerifier(
-            signature_algorithm=signature_algorithm,
-            key_resolver=self.http_key_resolver,
-        )
-
+        # Get signature algorithm from headers
         try:
-            results = verifier.verify(request)
+            alg = self.get_algorithm(request.headers, self.default_algorithm)
         except KeyError as exc:
-            msg = "Unknown HTTP signature key"
+            msg = "Signature-Input header missing"
+            self.logger.warning(msg, extra=logger_extra)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
+        except http_sf.StructuredFieldError as exc:
+            msg = "Invalid Signature-Input header"
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
+
+        # We must have an algorithm
+        if alg is None:
+            msg = "Signature algorithm not specified"
+            self.logger.warning(msg, extra=logger_extra)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
+
+        # Algorithm must be supported
+        if not (signature_algorithm := SUPPORTED_SIGNATURE_ALGORITHMS.get(alg)):
+            msg = "Unsupported signature algorithm"
+            self.logger.warning(msg, extra=logger_extra)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
+
+        # Algorithm must be accepted
+        if alg not in self.accepted_algorithms:
+            msg = "Signature algorithm not accepted"
+            self.logger.warning(msg, extra=logger_extra)
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
+
+        # Verify HTTP signature
+        verifier = HTTPMessageVerifier(signature_algorithm=signature_algorithm, key_resolver=self.http_key_resolver)
+        try:
+            results = verifier.verify(request, require_components=list(self.require_components))
         except InvalidSignature as exc:
             msg = "Invalid HTTP signature"
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
@@ -130,28 +121,18 @@ class RequestVerifier:
             self.logger.warning(msg, extra=logger_extra, exc_info=exc)
             raise HTTPException(status.HTTP_400_BAD_REQUEST, msg) from exc
 
-        if self.covered_components:
-            for result in results:
-                if not all(header in result.covered_components for header in self.covered_components):
-                    msg = "Missing required headers in signature"
-                    self.logger.warning(msg, extra=logger_extra)
-                    raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg)
-
         content = await read_body_with_limit(request, self.max_content_length)
 
         for result in results:
             try:
-                self.verify_content_digest(result, content)
-                self.logger.debug("Content-Digest verified")
-                return result, content
-            except InvalidContentDigest as exc:
+                if ContentDigest.verify_components(result.covered_components, content):
+                    self.logger.debug("Content-Digest verified")
+                    return result, content
+            except InvalidSignature as exc:
                 msg = "Content-Digest verification failed"
                 self.logger.warning(msg, extra=logger_extra, exc_info=exc)
                 raise HTTPException(status.HTTP_401_UNAUTHORIZED, msg) from exc
-            except UnsupportedContentDigestAlgorithm:
-                self.logger.debug("Unsupported Content-Digest algorithm")
-            except ContentDigestMissing:
-                self.logger.debug("Content-Digest header missing")
+            self.logger.debug("Content-Digest not covered by signature")
 
         msg = "Unable to verify Content-Digest"
         self.logger.warning(msg, extra=logger_extra)
