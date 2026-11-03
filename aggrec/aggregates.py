@@ -289,9 +289,8 @@ Derived components MUST NOT be included in the signature input.
         logger.warning(
             f"Header content length ({content_length}) exceeds the maximum allowed ({max_content_length})",
             extra={
-                "http_request_headers": request.headers,
-                "http_content_length": content_length,
                 "aggrec_event": "http_content_length_exceeded",
+                "http_content_length": content_length,
             },
         )
         raise HTTPException(
