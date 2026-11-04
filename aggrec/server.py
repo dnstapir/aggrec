@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 import aiobotocore.session
 import aiomqtt
 import boto3
+import fastapi_problem.handler
 import mongoengine
 import nats
 import nats.errors
@@ -37,7 +38,12 @@ class AggrecServer(FastAPI):
     def __init__(self, settings: Settings):
         self.logger = logging.getLogger(__name__).getChild(self.__class__.__name__)
         self.settings = settings
+
         super().__init__(**OPENAPI_METADATA, lifespan=self.lifespan)
+
+        # Configure RFC9457 exception handling
+        eh = fastapi_problem.handler.new_exception_handler()
+        fastapi_problem.handler.add_exception_handler(self, eh)
 
         if settings.s3.timeout > settings.mongodb.pending_timeout:
             self.logger.warning(
