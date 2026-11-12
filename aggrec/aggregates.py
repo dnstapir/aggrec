@@ -202,7 +202,10 @@ class S3StreamingResponse(StreamingResponse):
             except StopAsyncIteration:
                 return
             except TimeoutError:
-                logger.error("S3 read timed out while streaming payload")
+                logger.error(
+                    "S3 read timed out while streaming payload",
+                    extra={"aggrec_event": "s3_read_timeout"},
+                )
                 raise
             yield chunk
 
@@ -285,7 +288,10 @@ Derived components MUST NOT be included in the signature input.
     if max_content_length is not None and content_length > max_content_length:
         logger.warning(
             f"Header content length ({content_length}) exceeds the maximum allowed ({max_content_length})",
-            extra={"http_request_headers": request.headers, "http_content_length": content_length},
+            extra={
+                "aggrec_event": "http_content_length_exceeded",
+                "http_content_length": content_length,
+            },
         )
         raise HTTPException(
             status.HTTP_413_CONTENT_TOO_LARGE,
@@ -315,7 +321,11 @@ Derived components MUST NOT be included in the signature input.
 
     logger_extra: dict[str, str] = {"aggregate_creator": creator}
 
-    logger.info("Create aggregate request by keyid=%s", creator, extra=logger_extra)
+    logger.info(
+        "Create aggregate request by keyid=%s",
+        creator,
+        extra={**logger_extra, "aggrec_event": "create_aggregate_request"},
+    )
 
     http_headers = get_http_headers(request, request_verifier_result.covered_components.keys())
 
@@ -368,7 +378,15 @@ Derived components MUST NOT be included in the signature input.
         try:
             with pymongo.timeout(request.app.settings.mongodb.timeout):
                 metadata.save()
-            logger.info("Metadata saved: %s", metadata.id, extra=logger_extra)
+            logger.info(
+                "Metadata saved: %s",
+                metadata.id,
+                extra={
+                    **logger_extra,
+                    "aggrec_event": "metadata_saved",
+                },
+            )
+        # extra={**logger_extra, "aggrec_event": "create_aggregate_request"},
         except NotUniqueError:
             if existing_metadata := AggregateMetadata.objects(content_digest=content_digest).first():
                 if existing_metadata.pending_expire:
@@ -376,7 +394,11 @@ Derived components MUST NOT be included in the signature input.
                     logger.warning(
                         "Received request for pending aggregate from %s",
                         creator,
-                        extra={**logger_extra, "aggregate_id": str(existing_metadata.id)},
+                        extra={
+                            **logger_extra,
+                            "aggregate_id": str(existing_metadata.id),
+                            "aggrec_event": "metadata_pending",
+                        },
                     )
                     return Response(status_code=status.HTTP_409_CONFLICT)
 
@@ -385,19 +407,31 @@ Derived components MUST NOT be included in the signature input.
                     logger.info(
                         "Received duplicate aggregate from %s",
                         creator,
-                        extra={**logger_extra, "aggregate_id": str(existing_metadata.id)},
+                        extra={
+                            **logger_extra,
+                            "aggregate_id": str(existing_metadata.id),
+                            "aggrec_event": "metadata_duplicate_aggregate",
+                        },
                     )
                     aggregates_duplicates_counter.add(1, {"aggregate_type": aggregate_type.value})
                     metadata_location = get_aggregate_location(existing_metadata.id)
                     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
             else:
-                logger.error("Inconsistent metadata state")
+                logger.error(
+                    "Inconsistent metadata state",
+                    extra={**logger_extra, "aggrec_event": "inconsistent_metadata_state"},
+                )
                 return Response(
                     status_code=status.HTTP_409_CONFLICT,
                     content="Inconsistent metadata",
                 )
         except Exception as exc:
-            logger.error("Failed to save metadata %s", metadata.id, extra=logger_extra, exc_info=exc)
+            logger.error(
+                "Failed to save metadata %s",
+                metadata.id,
+                extra={**logger_extra, "aggrec_event": "metadata_save_failed"},
+                exc_info=exc,
+            )
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Database error") from exc
 
     with tracer.start_as_current_span("s3.put_object"):
@@ -419,18 +453,28 @@ Derived components MUST NOT be included in the signature input.
                     )
             except TimeoutError as exc:
                 logger.error(
-                    "S3 operation timed out, deleting metadata %s", metadata.id, extra=logger_extra, exc_info=exc
+                    "S3 operation timed out, deleting metadata %s",
+                    metadata.id,
+                    extra={**logger_extra, "aggrec_event": "s3_timeout"},
+                    exc_info=exc,
                 )
                 metadata.delete()
                 raise HTTPException(status.HTTP_504_GATEWAY_TIMEOUT, "S3 timeout") from exc
             except Exception as exc:
                 logger.error(
-                    "Failed to create object, deleting metadata %s", metadata.id, extra=logger_extra, exc_info=exc
+                    "Failed to create object, deleting metadata %s",
+                    metadata.id,
+                    extra={**logger_extra, "aggrec_event": "s3_create_failed"},
+                    exc_info=exc,
                 )
                 metadata.delete()
                 raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "S3 error") from exc
 
-            logger.info("Object created: %s", metadata.s3_object_key, extra=logger_extra)
+            logger.info(
+                "Object created: %s",
+                metadata.s3_object_key,
+                extra={**logger_extra, "aggrec_event": "s3_object_created"},
+            )
 
         # Finalize metadata by clearing pending expire
         metadata.pending_expire = None
@@ -450,7 +494,10 @@ Derived components MUST NOT be included in the signature input.
             logger.debug("New aggregate message added to MQTT queue")
         except asyncio.QueueFull:
             aggregates_mqtt_queue_drops.add(1)
-            logger.warning("MQTT queue full, message dropped")
+            logger.warning(
+                "MQTT queue full, message dropped",
+                extra={"aggrec_event": "mqtt_queue_full"},
+            )
 
     if request.app.nats_new_aggregate_messages is not None:
         try:
@@ -459,7 +506,10 @@ Derived components MUST NOT be included in the signature input.
             logger.debug("New aggregate message added to NATS queue")
         except asyncio.QueueFull:
             aggregates_nats_queue_drops.add(1)
-            logger.warning("NATS queue full, message dropped")
+            logger.warning(
+                "NATS queue full, message dropped",
+                extra={"aggrec_event": "nats_queue_full"},
+            )
 
     return Response(status_code=status.HTTP_201_CREATED, headers={"Location": metadata_location})
 
