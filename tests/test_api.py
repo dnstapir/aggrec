@@ -3,6 +3,7 @@ import os
 import uuid
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urljoin
 
 import aiohttp
 import httpx2
@@ -245,3 +246,16 @@ def test_stats():
 
     response = client.get(f"{server}/api/v1/stats/aggregates")
     assert response.status_code == 200
+
+
+def test_error_handler() -> None:
+    algorithm = algorithms.ED25519
+    key_id = "test"
+    key_resolver = TestHTTPSignatureKeyResolver(key_id=key_id, algorithm=algorithm)
+
+    client = get_test_client(key_resolver)
+    server = ""
+
+    response = client.get(urljoin(server, "/api/v1/b0rken"))
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.headers["content-type"] == "application/problem+json"
